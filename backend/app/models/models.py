@@ -92,6 +92,7 @@ class Project(Base):
     assets = relationship("Asset", back_populates="project")
     jobs = relationship("Job", back_populates="project")
     mix_session = relationship("MixSession", back_populates="project", uselist=False)
+    markers = relationship("TimelineMarker", back_populates="project")
 
 
 class Asset(Base):
@@ -145,6 +146,20 @@ class MixSession(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     project = relationship("Project", back_populates="mix_session")
+
+
+class TimelineMarker(Base):
+    __tablename__ = "timeline_markers"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    time = Column(Float, nullable=False)
+    label = Column(String(255), nullable=True)
+    color = Column(String(20), default="yellow")
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    project = relationship("Project", back_populates="markers")
 
 
 class AuditLog(Base):

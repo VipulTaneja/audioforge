@@ -307,6 +307,53 @@ class ApiService {
   getAssetDownloadUrl(assetId: string): string {
     return `${API_BASE_URL}/api/v1/assets/${assetId}/download`;
   }
+
+  // Timeline Markers
+  async listMarkers(projectId: string): Promise<TimelineMarker[]> {
+    return this.request<TimelineMarker[]>(`/projects/${projectId}/markers`);
+  }
+
+  async createMarker(projectId: string, marker: TimelineMarkerCreate): Promise<TimelineMarker> {
+    return this.request<TimelineMarker>(`/projects/${projectId}/markers`, {
+      method: 'POST',
+      body: JSON.stringify(marker),
+    });
+  }
+
+  async updateMarker(projectId: string, markerId: string, marker: TimelineMarkerUpdate): Promise<TimelineMarker> {
+    return this.request<TimelineMarker>(`/projects/${projectId}/markers/${markerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(marker),
+    });
+  }
+
+  async deleteMarker(projectId: string, markerId: string): Promise<void> {
+    return this.request<void>(`/projects/${projectId}/markers/${markerId}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
+export interface TimelineMarker {
+  id: string;
+  project_id: string;
+  time: number;
+  label?: string;
+  color: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface TimelineMarkerCreate {
+  time: number;
+  label?: string;
+  color?: string;
+}
+
+export interface TimelineMarkerUpdate {
+  time?: number;
+  label?: string;
+  color?: string;
 }
 
 export const api = new ApiService();

@@ -156,6 +156,31 @@ class MixSessionResponse(BaseModel):
         from_attributes = True
 
 
+class TimelineMarkerCreate(BaseModel):
+    time: float
+    label: Optional[str] = None
+    color: str = "yellow"
+
+
+class TimelineMarkerUpdate(BaseModel):
+    time: Optional[float] = None
+    label: Optional[str] = None
+    color: Optional[str] = None
+
+
+class TimelineMarkerResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    time: float
+    label: Optional[str] = None
+    color: str
+    created_by: UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

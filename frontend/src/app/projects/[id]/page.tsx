@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { api, Asset, DemucsModel, Stem, StemMode } from '@/lib/api';
+import { api, Asset, DemucsModel, Stem, StemMode, TimelineMarker } from '@/lib/api';
 import { formatBrowserDateTime } from '@/lib/datetime';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Clock3,
   Download,
+  Flag,
   Gauge,
   Headphones,
   Key,
@@ -235,6 +236,10 @@ export default function ProjectDetailPage() {
   const [spectrumData, setSpectrumData] = useState<number[]>([]);
   const [loudnessShortTerm, setLoudnessShortTerm] = useState(-Infinity);
   const [loudnessHistory, setLoudnessHistory] = useState<number[]>([]);
+  const [markers, setMarkers] = useState<TimelineMarker[]>([]);
+  const [isAddingMarker, setIsAddingMarker] = useState(false);
+  const [editingMarkerId, setEditingMarkerId] = useState<string | null>(null);
+  const [markerDraft, setMarkerDraft] = useState('');
   
   const playbackRef = useRef<NodeJS.Timeout | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -289,12 +294,14 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     const loadProjectData = async () => {
       try {
-        const [project, projectAssets] = await Promise.all([
+        const [project, projectAssets, projectMarkers] = await Promise.all([
           api.getProject(projectId),
           api.getProjectAssets(projectId),
+          api.listMarkers(projectId).catch(() => []),
         ]);
 
         setProjectName(project.name);
+        setMarkers(projectMarkers);
         hydrateProjectAssets(projectAssets);
       } catch (error) {
         console.error('Failed to load project data:', error);
@@ -758,6 +765,61 @@ export default function ProjectDetailPage() {
     } finally {
       setIsSavingAssetName(false);
     }
+  };
+
+  const handleAddMarker = async () => {
+    if (isAddingMarker) {
+      setIsAddingMarker(false);
+      return;
+    }
+    setIsAddingMarker(true);
+  };
+
+  const handleCreateMarker = async () => {
+    try {
+      const newMarker = await api.createMarker(projectId, {
+        time: currentTime,
+        label: markerDraft || undefined,
+        color: 'yellow',
+      });
+      setMarkers(prev => [...prev, newMarker].sort((a, b) => a.time - b.time));
+      setMarkerDraft('');
+      setIsAddingMarker(false);
+    } catch (error) {
+      console.error('Failed to create marker:', error);
+    }
+  };
+
+  const handleUpdateMarker = async (markerId: string) => {
+    try {
+      const updated = await api.updateMarker(projectId, markerId, {
+        label: markerDraft || undefined,
+      });
+      setMarkers(prev => prev.map(m => m.id === markerId ? updated : m));
+      setEditingMarkerId(null);
+      setMarkerDraft('');
+    } catch (error) {
+      console.error('Failed to update marker:', error);
+    }
+  };
+
+  const handleDeleteMarker = async (markerId: string) => {
+    try {
+      await api.deleteMarker(projectId, markerId);
+      setMarkers(prev => prev.filter(m => m.id !== markerId));
+    } catch (error) {
+      console.error('Failed to delete marker:', error);
+    }
+  };
+
+  const startEditingMarker = (marker: TimelineMarker) => {
+    setEditingMarkerId(marker.id);
+    setMarkerDraft(marker.label || '');
+  };
+
+  const cancelEditingMarker = () => {
+    setEditingMarkerId(null);
+    setMarkerDraft('');
   };
 
   const togglePlay = useCallback(async () => {
@@ -2262,8 +2324,46 @@ export default function ProjectDetailPage() {
             <div className="rounded-xl border bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
               {/* Time ruler */}
               <div className="flex border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                <div className="w-44 flex-shrink-0 p-1.5 border-r dark:border-gray-700"></div>
+                <div className="w-44 flex-shrink-0 p-1.5 border-r dark:border-gray-700 flex items-center gap-1">
+                  <button
+                    onClick={handleAddMarker}
+                    className={`p-1 rounded ${isAddingMarker ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'text-gray-400 hover:text-amber-500'}`}
+                    title="Add marker at current time"
+                  >
+                    <Flag size={14} />
+                  </button>
+                  {isAddingMarker && (
+                    <>
+                      <input
+                        type="text"
+                        value={markerDraft}
+                        onChange={(e) => setMarkerDraft(e.target.value)}
+                        placeholder="Label..."
+                        className="w-16 text-[10px] px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleCreateMarker();
+                          if (e.key === 'Escape') setIsAddingMarker(false);
+                        }}
+                      />
+                      <button
+                        onClick={handleCreateMarker}
+                        className="p-0.5 text-amber-600 hover:text-amber-700"
+                      >
+                        <Save size={12} />
+                      </button>
+                      <button
+                        onClick={() => { setIsAddingMarker(false); setMarkerDraft(''); }}
+                        className="p-0.5 text-gray-400 hover:text-gray-600"
+                      >
+                        <X size={12} />
+                      </button>
+                    </>
+                  )}
+                  <span className="text-[9px] text-gray-400">{markers.length} markers</span>
+                </div>
                 <div className="flex-1 p-1 relative">
+                  {/* Time markers */}
                   <div className="absolute inset-x-0 text-[10px] text-gray-500 dark:text-gray-400 font-mono pointer-events-none">
                     {Array.from({ length: Math.floor(totalDuration / 10) + 1 }, (_, i) => {
                       const markerTime = i * 10;
@@ -2279,6 +2379,74 @@ export default function ProjectDetailPage() {
                       );
                     })}
                   </div>
+                  {/* Timeline markers */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    {markers.map((marker) => {
+                      const position = totalDuration > 0 ? (marker.time / totalDuration) * 100 : 0;
+                      return (
+                        <div
+                          key={marker.id}
+                          className="absolute top-0 bottom-0 w-0.5 bg-amber-400 group"
+                          style={{ left: `${position}%` }}
+                        >
+                          <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-400 text-[8px] px-1 py-0.5 rounded whitespace-nowrap text-black">
+                            {marker.label || formatTime(marker.time)}
+                          </div>
+                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 -translate-y-full hidden group-hover:block bg-white dark:bg-gray-800 border rounded shadow-lg p-1 z-10">
+                            <div className="text-[10px] font-medium">{marker.label || 'Marker'}</div>
+                            <div className="text-[9px] text-gray-500">{formatTime(marker.time)}</div>
+                            <div className="flex gap-1 mt-1">
+                              <button
+                                onClick={() => startEditingMarker(marker)}
+                                className="p-0.5 text-blue-500 hover:text-blue-600"
+                              >
+                                <Pencil size={10} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteMarker(marker.id)}
+                                className="p-0.5 text-red-500 hover:text-red-600"
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Edit marker overlay */}
+                  {editingMarkerId && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <div className="bg-white dark:bg-gray-800 border rounded shadow-lg p-2">
+                        <input
+                          type="text"
+                          value={markerDraft}
+                          onChange={(e) => setMarkerDraft(e.target.value)}
+                          placeholder="Marker label..."
+                          className="w-32 text-xs px-2 py-1 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleUpdateMarker(editingMarkerId);
+                            if (e.key === 'Escape') cancelEditingMarker();
+                          }}
+                        />
+                        <div className="flex gap-1 justify-end">
+                          <button
+                            onClick={cancelEditingMarker}
+                            className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleUpdateMarker(editingMarkerId)}
+                            className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
