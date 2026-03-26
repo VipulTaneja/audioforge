@@ -1366,6 +1366,35 @@ export default function ProjectDetailPage() {
     }));
   };
 
+  const toggleStemSelection = (stemId: string) => {
+    setTimelineStems(prev => {
+      const stem = prev.find(s => s.id === stemId);
+      const newSelected = !stem?.isSelected;
+      
+      // Update gain for all tracks based on new selection
+      prev.forEach(s => {
+        const nodes = oscillatorsRef.current.get(s.id);
+        const audioNodes = s.assetId ? audioNodesRef.current.get(s.assetId) : undefined;
+        
+        let shouldPlay = s.isSelected && !s.muted;
+        if (s.id === stemId) {
+          shouldPlay = newSelected && !s.muted;
+        }
+        
+        if (nodes) {
+          nodes.gain.gain.value = shouldPlay ? (s.volume / 100) * 0.3 : 0;
+        }
+        if (audioNodes) {
+          audioNodes.gain.gain.value = shouldPlay ? (s.volume / 100) * 0.3 : 0;
+        }
+      });
+      
+      return prev.map(s => 
+        s.id === stemId ? { ...s, isSelected: newSelected } : s
+      );
+    });
+  };
+
   const handleResetMixer = () => {
     setTimelineStems((prev) => {
       const resetStems = prev.map((stem) => ({
@@ -2046,138 +2075,143 @@ export default function ProjectDetailPage() {
 
         {/* Mixer Tab */}
         {activeTab === 'mix' && timelineStems.length > 0 && (
-          <div className="mx-auto max-w-7xl">
-            {/* Transport */}
-            <div className="mb-3 rounded-xl border border-white/70 bg-white/85 p-3 shadow backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
-              <div className="flex flex-wrap items-center gap-4">
+          <div className="max-w-full">
+            {/* Top Meters Bar */}
+            <div className="mb-3 rounded-xl border border-white/70 bg-white/85 p-4 shadow backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
+              <div className="flex flex-wrap items-center gap-6">
                 {/* Play button + time */}
                 <div className="flex items-center gap-3">
                   <button
                     onClick={togglePlay}
                     disabled={isLoadingAudio}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition shadow ${
+                    className={`w-12 h-12 rounded-full flex items-center justify-center transition shadow ${
                       isLoadingAudio 
                         ? 'bg-gray-400 cursor-not-allowed' 
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
                   >
                     {isLoadingAudio ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
                     ) : isPlaying ? (
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                         <rect x="6" y="4" width="4" height="16" />
                         <rect x="14" y="4" width="4" height="16" />
                       </svg>
                     ) : (
-                      <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                         <polygon points="5,3 19,12 5,21" />
                       </svg>
                     )}
                   </button>
-                  <span className="text-lg font-mono font-bold dark:text-white">
-                    {formatTime(currentTime)} / {formatTime(totalDuration)}
-                  </span>
+                  <div>
+                    <span className="text-xl font-mono font-bold dark:text-white">
+                      {formatTime(currentTime)}
+                    </span>
+                    <span className="text-lg font-mono text-gray-400"> / {formatTime(totalDuration)}</span>
+                  </div>
                 </div>
 
-                {/* Master volume */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                    <Gauge size={12} />
-                    Master
-                  </span>
+                {/* Master Volume */}
+                <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
+                  <Gauge size={16} className="text-gray-500" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Master</span>
                   <input
                     type="range"
                     min="0"
                     max="100"
                     value={masterVolume}
                     onChange={(e) => setMasterVolume(parseInt(e.target.value))}
-                    className="w-24 accent-sky-600"
+                    className="w-28 accent-sky-600"
                   />
-                  <span className="text-xs font-medium text-gray-600 dark:text-gray-300 w-8">{masterVolume}%</span>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300 w-10">{masterVolume}%</span>
                 </div>
 
-                {/* Master meter */}
-                <div className="flex items-center gap-1">
-                  <div className="w-16 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title={`Peak: ${Math.round(masterLevel * 100)}%`}>
-                    <div
-                      className={`absolute inset-y-0 left-0 rounded-full transition-all ${
-                        masterLevel > 0.82 ? 'bg-red-500' : masterLevel > 0.55 ? 'bg-amber-500' : 'bg-emerald-500'
-                      }`}
-                      style={{ width: `${masterLevel < 0.02 ? 0 : Math.max(4, masterLevel * 100)}%` }}
-                    />
-                    <div
-                      className="absolute inset-y-0 left-0 bg-sky-500/60 rounded-full"
-                      style={{ width: `${masterRms < 0.02 ? 0 : Math.max(2, masterRms * 100)}%` }}
-                    />
+                {/* Master Meters - Peak + RMS */}
+                <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
+                  <div className="text-center">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Peak</div>
+                    <div className="w-20 h-6 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title={`Peak: ${Math.round(masterLevel * 100)}%`}>
+                      <div
+                        className={`absolute inset-y-0 left-0 rounded transition-all ${
+                          masterLevel > 0.82 ? 'bg-red-500' : masterLevel > 0.55 ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                        style={{ width: `${masterLevel < 0.02 ? 0 : Math.max(4, masterLevel * 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-1">{Math.round(masterLevel * 100)}%</div>
                   </div>
-                  <span className="text-[9px] text-gray-400 font-mono">
-                    {Math.round(masterLevel * 100)}/{Math.round(masterRms * 100)}
-                  </span>
-                </div>
-
-                {/* Phase meter */}
-                <div className="flex items-center gap-1" title={`Phase: ${(masterPhase * 100).toFixed(0)}`}>
-                  <span className="text-[9px] text-gray-400">Ph</span>
-                  <div className="w-12 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
-                    <div
-                      className={`absolute inset-y-0 rounded-full transition-all ${
-                        masterPhase < 0 ? 'bg-red-500' : 'bg-emerald-500'
-                      }`}
-                      style={{ 
-                        left: '50%',
-                        width: `${Math.abs(masterPhase) * 50}%`,
-                        transform: masterPhase < 0 ? 'translateX(-100%)' : 'translateX(0)'
-                      }}
-                    />
+                  <div className="text-center">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">RMS</div>
+                    <div className="w-20 h-6 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-sky-500/80 rounded transition-all"
+                        style={{ width: `${masterRms < 0.02 ? 0 : Math.max(4, masterRms * 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-1">{Math.round(masterRms * 100)}%</div>
                   </div>
-                  <span className={`text-[9px] font-mono ${masterPhase < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                    {masterPhase >= 0 ? '+' : ''}{(masterPhase * 100).toFixed(0)}
-                  </span>
                 </div>
 
-                {/* Spectrum Analyzer toggle */}
-                <button
-                  onClick={() => setShowSpectrum(!showSpectrum)}
-                  className={`p-1 rounded ${showSpectrum ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-600' : 'text-gray-400 hover:text-gray-600'}`}
-                  title="Spectrum Analyzer"
-                >
-                  <AudioWaveform size={14} />
-                </button>
-
-                {/* Loudness Meter */}
-                <div className="flex items-center gap-1" title={`Short-term: ${loudnessShortTerm > -70 ? loudnessShortTerm.toFixed(1) : '-∞'} LUFS`}>
-                  <span className="text-[9px] text-gray-400">LUFS</span>
-                  <div className="w-16 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full transition-all bg-sky-500"
-                      style={{ width: `${loudnessShortTerm > -70 ? Math.max(2, ((loudnessShortTerm + 70) / 70) * 100) : 0}%` }}
-                    />
+                {/* Phase Correlation */}
+                <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
+                  <div className="text-center">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Phase</div>
+                    <div className="w-24 h-6 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title={`Phase: ${(masterPhase * 100).toFixed(0)}`}>
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full h-0.5 bg-gray-400" />
+                      </div>
+                      <div
+                        className={`absolute inset-y-0 rounded transition-all ${
+                          masterPhase < 0 ? 'bg-red-500' : 'bg-emerald-500'
+                        }`}
+                        style={{ 
+                          left: '50%',
+                          width: `${Math.abs(masterPhase) * 50}%`,
+                          transform: masterPhase < 0 ? 'translateX(-100%)' : 'translateX(0)'
+                        }}
+                      />
+                    </div>
+                    <div className={`text-[10px] mt-1 font-medium ${masterPhase < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                      {masterPhase >= 0 ? '+' : ''}{(masterPhase * 100).toFixed(0)}
+                    </div>
                   </div>
-                  <span className="text-[9px] font-mono text-gray-400">
-                    {loudnessShortTerm > -70 ? loudnessShortTerm.toFixed(1) : '-∞'}
-                  </span>
                 </div>
 
-                {/* Loudness History Mini Graph */}
-                <div className="w-20 h-3 rounded bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                  <div className="h-full flex items-end gap-[1px] px-[2px]">
-                    {loudnessHistory.length > 0 ? (
-                      loudnessHistory.map((val, i) => (
-                        <div
-                          key={i}
-                          className="flex-1 rounded-t"
-                          style={{
-                            height: `${Math.max(10, ((val + 70) / 70) * 100)}%`,
-                            backgroundColor: val > -14 ? '#f59e0b' : '#22c55e',
-                          }}
-                        />
-                      ))
-                    ) : (
-                      <div className="w-full h-full" />
-                    )}
+                {/* LUFS Meter */}
+                <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
+                  <div className="text-center">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">LUFS</div>
+                    <div className="w-28 h-6 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title={`Short-term: ${loudnessShortTerm > -70 ? loudnessShortTerm.toFixed(1) : '-∞'} LUFS`}>
+                      <div
+                        className="absolute inset-y-0 left-0 rounded transition-all bg-sky-500"
+                        style={{ width: `${loudnessShortTerm > -70 ? Math.max(4, ((loudnessShortTerm + 70) / 70) * 100) : 0}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-1">
+                      {loudnessShortTerm > -70 ? loudnessShortTerm.toFixed(1) : '-∞'}
+                    </div>
+                  </div>
+                  {/* LUFS History */}
+                  <div className="w-24 h-8 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                    <div className="h-full flex items-end gap-[1px] px-[2px] py-[2px]">
+                      {loudnessHistory.length > 0 ? (
+                        loudnessHistory.map((val, i) => (
+                          <div
+                            key={i}
+                            className="flex-1 rounded-t transition-all"
+                            style={{
+                              height: `${Math.max(20, ((val + 70) / 70) * 100)}%`,
+                              backgroundColor: val > -14 ? '#f59e0b' : '#22c55e',
+                            }}
+                          />
+                        ))
+                      ) : (
+                        <div className="w-full h-full" />
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -2185,26 +2219,6 @@ export default function ProjectDetailPage() {
 
                 {/* Action buttons */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">{timelineStems.filter((s) => s.isSelected).length} selected</span>
-                  <button
-                    onClick={() => {
-                      const selectedStems = timelineStems.filter((s) => s.isSelected);
-                      if (selectedStems.length > 0) {
-                        const firstStem = selectedStems[0];
-                        if (firstStem.assetId) {
-                          const volumes = selectedStems.map((s) => s.volume / 100);
-                          const pans = selectedStems.map((s) => s.pan / 100);
-                          const url = api.getAssetMixdownUrl(firstStem.assetId, volumes, pans);
-                          window.open(url, '_blank');
-                        }
-                      }
-                    }}
-                    disabled={timelineStems.filter((s) => s.isSelected).length === 0}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-900/30 dark:bg-emerald-900/20 dark:text-emerald-300"
-                  >
-                    <Download size={12} />
-                    Export
-                  </button>
                   <button
                     onClick={handleResetMixer}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
@@ -2236,9 +2250,56 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
 
+              {/* Spectrum Analyzer */}
+              {showSpectrum && (
+                <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <AudioWaveform size={16} className="text-sky-500" />
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Spectrum</span>
+                    </div>
+                    <div className="flex-1 h-16 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-end px-2 gap-[2px]">
+                      {spectrumData.length > 0 ? (
+                        spectrumData.map((value, i) => (
+                          <div
+                            key={i}
+                            className="flex-1 rounded-t transition-all"
+                            style={{
+                              height: `${Math.max(4, value * 100)}%`,
+                              backgroundColor: value > 0.7 ? '#ef4444' : value > 0.4 ? '#f59e0b' : '#22c55e',
+                            }}
+                          />
+                        ))
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-xs text-gray-400">Play audio to see spectrum</span>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowSpectrum(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Spectrum toggle button when hidden */}
+              {!showSpectrum && (
+                <button
+                  onClick={() => setShowSpectrum(!showSpectrum)}
+                  className="mt-3 inline-flex items-center gap-2 text-xs text-sky-500 hover:text-sky-600"
+                >
+                  <AudioWaveform size={14} />
+                  Show Spectrum Analyzer
+                </button>
+              )}
+
               {/* Snapshots Panel */}
               {showSnapshots && (
-                <div className="border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3">
+                <div className="mt-4 pt-4 border-t dark:border-gray-700">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Save Current Mix</span>
                   </div>
@@ -2294,33 +2355,6 @@ export default function ProjectDetailPage() {
                   ) : (
                     <div className="text-xs text-gray-400 text-center py-2">No snapshots saved yet</div>
                   )}
-                </div>
-              )}
-
-              {/* Spectrum Analyzer Visualization */}
-              {showSpectrum && (
-                <div className="border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">Spectrum</span>
-                    <div className="flex-1 h-12 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-end px-1 gap-[1px]">
-                      {spectrumData.length > 0 ? (
-                        spectrumData.map((value, i) => (
-                          <div
-                            key={i}
-                            className="flex-1 rounded-t transition-all"
-                            style={{
-                              height: `${Math.max(2, value * 100)}%`,
-                              backgroundColor: value > 0.7 ? '#ef4444' : value > 0.4 ? '#f59e0b' : '#22c55e',
-                            }}
-                          />
-                        ))
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-[10px] text-gray-400">Play audio to see spectrum</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -2457,73 +2491,89 @@ export default function ProjectDetailPage() {
 
                   {/* Stem rows */}
                   {timelineStems.map((stem) => (
-                    <div key={stem.id} className="flex border-b dark:border-gray-700 last:border-b-0 min-h-[60px]">
+                    <div key={stem.id} className="flex border-b dark:border-gray-700 last:border-b-0 min-h-[56px]">
+                      {/* Selection checkbox */}
+                      <div className="w-10 flex-shrink-0 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          checked={stem.isSelected}
+                          onChange={() => toggleStemSelection(stem.id)}
+                          className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                        />
+                      </div>
+
                       {/* Stem controls */}
-                      <div className="w-44 flex-shrink-0 p-1.5 bg-white dark:bg-gray-800 border-r dark:border-gray-700">
+                      <div className="w-36 flex-shrink-0 p-1.5 bg-white dark:bg-gray-800 border-r dark:border-gray-700">
                         <div className="flex items-center gap-1.5 mb-1">
                           <span className="text-sm">{stem.icon}</span>
-                      <span className={`font-medium text-xs ${stem.color}`}>{stem.name}</span>
-                      <div className="flex-1"></div>
-                      <button
-                        onClick={() => toggleMute(stem.id)}
-                        className={`w-5 h-5 rounded flex items-center justify-center transition ${
-                          stem.muted ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
-                        }`}
-                        title={stem.muted ? 'Unmute' : 'Mute'}
-                      >
-                        {stem.muted ? <VolumeX size={10} /> : <Volume2 size={10} />}
-                      </button>
-                      <button
-                        onClick={() => toggleSolo(stem.id)}
-                        className={`w-5 h-5 rounded flex items-center justify-center transition ${
-                          stem.solo ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
-                        }`}
-                        title={stem.solo ? 'Unsolo' : 'Solo'}
-                      >
-                        <Headphones size={10} />
-                      </button>
-                    </div>
-                    
-                    {/* Level meter */}
-                    <div className="h-1 mb-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          (trackLevels[stem.id] ?? 0) > 0.82
-                            ? 'bg-red-500'
-                            : (trackLevels[stem.id] ?? 0) > 0.55
-                              ? 'bg-amber-500'
-                              : 'bg-emerald-500'
-                        }`}
-                        style={{ width: `${(trackLevels[stem.id] ?? 0) < 0.02 ? 0 : Math.max(4, (trackLevels[stem.id] ?? 0) * 100)}%` }}
-                      />
-                    </div>
-                    
-                    {/* Volume + Pan sliders */}
-                    <div className="flex gap-2">
-                      <div className="flex-1 flex items-center gap-1">
-                        <span className="text-[9px] text-gray-400">V</span>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={stem.volume}
-                          onChange={(e) => handleVolumeChange(stem.id, parseInt(e.target.value))}
-                          className="w-full h-1 accent-blue-600 cursor-pointer"
-                        />
+                          <span className={`font-medium text-xs ${stem.color}`}>{stem.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => toggleMute(stem.id)}
+                            className={`w-5 h-5 rounded flex items-center justify-center transition ${
+                              stem.muted ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
+                            }`}
+                            title={stem.muted ? 'Unmute' : 'Mute'}
+                          >
+                            {stem.muted ? <VolumeX size={10} /> : <Volume2 size={10} />}
+                          </button>
+                          <button
+                            onClick={() => toggleSolo(stem.id)}
+                            className={`w-5 h-5 rounded flex items-center justify-center transition ${
+                              stem.solo ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
+                            }`}
+                            title={stem.solo ? 'Unsolo' : 'Solo'}
+                          >
+                            <Headphones size={10} />
+                          </button>
+                          <div className="flex-1"></div>
+                          <span className="text-[9px] text-gray-400">{stem.volume}%</span>
+                        </div>
                       </div>
-                      <div className="flex-1 flex items-center gap-1">
-                        <span className="text-[9px] text-gray-400">P</span>
-                        <input
-                          type="range"
-                          min="-100"
-                          max="100"
-                          value={stem.pan}
-                          onChange={(e) => handlePanChange(stem.id, parseInt(e.target.value))}
-                          className="w-full h-1 accent-blue-600 cursor-pointer"
-                        />
+                      
+                      {/* Level meter + Volume/Pan */}
+                      <div className="flex-1 flex items-center gap-3 px-3">
+                        {/* Level meter */}
+                        <div className="w-24 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              (trackLevels[stem.id] ?? 0) > 0.82
+                                ? 'bg-red-500'
+                                : (trackLevels[stem.id] ?? 0) > 0.55
+                                  ? 'bg-amber-500'
+                                  : 'bg-emerald-500'
+                            }`}
+                            style={{ width: `${(trackLevels[stem.id] ?? 0) < 0.02 ? 0 : Math.max(4, (trackLevels[stem.id] ?? 0) * 100)}%` }}
+                          />
+                        </div>
+                        
+                        {/* Volume slider */}
+                        <div className="flex items-center gap-1 flex-1">
+                          <span className="text-[9px] text-gray-400">V</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={stem.volume}
+                            onChange={(e) => handleVolumeChange(stem.id, parseInt(e.target.value))}
+                            className="flex-1 h-1 accent-blue-600 cursor-pointer"
+                          />
+                        </div>
+                        
+                        {/* Pan slider */}
+                        <div className="flex items-center gap-1 w-20">
+                          <span className="text-[9px] text-gray-400">P</span>
+                          <input
+                            type="range"
+                            min="-100"
+                            max="100"
+                            value={stem.pan}
+                            onChange={(e) => handlePanChange(stem.id, parseInt(e.target.value))}
+                            className="w-14 h-1 accent-blue-600 cursor-pointer"
+                          />
+                        </div>
                       </div>
-                    </div>
-                  </div>
                   
                   {/* Waveform area */}
                   <div 
