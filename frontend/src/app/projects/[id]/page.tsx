@@ -7,6 +7,7 @@ import { formatBrowserDateTime } from '@/lib/datetime';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   ArrowUpDown,
+  AudioWaveform,
   CheckSquare,
   Clock3,
   Download,
@@ -230,6 +231,8 @@ export default function ProjectDetailPage() {
   const [masterLevel, setMasterLevel] = useState(0);
   const [masterRms, setMasterRms] = useState(0);
   const [masterPhase, setMasterPhase] = useState(0);
+  const [showSpectrum, setShowSpectrum] = useState(false);
+  const [spectrumData, setSpectrumData] = useState<number[]>([]);
   
   const playbackRef = useRef<NodeJS.Timeout | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -379,6 +382,22 @@ export default function ProjectDetailPage() {
     return Math.max(-1, Math.min(1, sum / denominator));
   }, []);
 
+  const getSpectrumData = useCallback((analyser: AnalyserNode): number[] => {
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(dataArray);
+    const bars = 16;
+    const step = Math.floor(dataArray.length / bars);
+    const result: number[] = [];
+    for (let i = 0; i < bars; i++) {
+      let sum = 0;
+      for (let j = 0; j < step; j++) {
+        sum += dataArray[i * step + j];
+      }
+      result.push(sum / step / 255);
+    }
+    return result;
+  }, []);
+
   const syncLiveAudioState = useCallback((stems: TimelineStem[]) => {
     const anySolo = stems.some((stem) => stem.solo);
 
@@ -425,6 +444,9 @@ export default function ProjectDetailPage() {
       setMasterLevel(masterAnalyserRef.current ? getMeterLevel(masterAnalyserRef.current) : 0);
       setMasterRms(masterAnalyserRef.current ? getMeterRms(masterAnalyserRef.current) : 0);
       setMasterPhase(masterAnalyserRef.current ? getPhaseCorrelation(masterAnalyserRef.current) : 0);
+      if (showSpectrum) {
+        setSpectrumData(masterAnalyserRef.current ? getSpectrumData(masterAnalyserRef.current) : []);
+      }
       meterAnimationRef.current = requestAnimationFrame(updateMeters);
     };
 
@@ -436,7 +458,7 @@ export default function ProjectDetailPage() {
         meterAnimationRef.current = null;
       }
     };
-  }, [getMeterLevel, getMeterRms, getPhaseCorrelation, isPlaying, timelineStems]);
+  }, [getMeterLevel, getMeterRms, getPhaseCorrelation, getSpectrumData, isPlaying, showSpectrum, timelineStems]);
 
   const initAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
@@ -2089,6 +2111,15 @@ export default function ProjectDetailPage() {
                   </span>
                 </div>
 
+                {/* Spectrum Analyzer toggle */}
+                <button
+                  onClick={() => setShowSpectrum(!showSpectrum)}
+                  className={`p-1 rounded ${showSpectrum ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-600' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="Spectrum Analyzer"
+                >
+                  <AudioWaveform size={14} />
+                </button>
+
                 <div className="flex-1"></div>
 
                 {/* Action buttons */}
@@ -2136,6 +2167,33 @@ export default function ProjectDetailPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Spectrum Analyzer Visualization */}
+              {showSpectrum && (
+                <div className="border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">Spectrum</span>
+                    <div className="flex-1 h-12 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-end px-1 gap-[1px]">
+                      {spectrumData.length > 0 ? (
+                        spectrumData.map((value, i) => (
+                          <div
+                            key={i}
+                            className="flex-1 rounded-t transition-all"
+                            style={{
+                              height: `${Math.max(2, value * 100)}%`,
+                              backgroundColor: value > 0.7 ? '#ef4444' : value > 0.4 ? '#f59e0b' : '#22c55e',
+                            }}
+                          />
+                        ))
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-[10px] text-gray-400">Play audio to see spectrum</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Timeline with Stems */}
