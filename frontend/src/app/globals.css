@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --background: 210 33% 98%;
+  --background-secondary: 206 42% 96%;
+  --foreground: 215 33% 15%;
+  --border: 214 26% 86%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 33% 15%;
+  --primary: 204 88% 44%;
+  --primary-foreground: 210 40% 98%;
+  --primary-soft: 199 89% 92%;
+  --muted: 210 34% 94%;
+  --muted-foreground: 215 16% 41%;
+  --ring: 199 89% 48%;
+  --shadow-color: 212 45% 20%;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: 222 36% 9%;
+  --background-secondary: 220 33% 11%;
+  --foreground: 210 32% 94%;
+  --border: 216 25% 22%;
+  --card: 222 30% 13%;
+  --card-foreground: 210 32% 94%;
+  --primary: 196 100% 64%;
+  --primary-foreground: 222 47% 11%;
+  --primary-soft: 199 73% 19%;
+  --muted: 220 24% 17%;
+  --muted-foreground: 214 17% 69%;
+  --ring: 196 100% 64%;
+  --shadow-color: 220 65% 2%;
+}
+
+html {
+  background-color: hsl(var(--background));
+}
+
+body {
+  color: hsl(var(--foreground));
+  background:
+    radial-gradient(circle at top left, hsl(var(--primary-soft) / 0.72), transparent 26%),
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.08), transparent 20%),
+    linear-gradient(180deg, hsl(var(--background-secondary)) 0%, hsl(var(--background)) 54%, hsl(var(--background-secondary)) 100%);
+  min-height: 100vh;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: hsl(var(--primary) / 0.22);
+  color: hsl(var(--foreground));
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.32);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.bg-card { background-color: hsl(var(--card)); }
+.text-card-foreground { color: hsl(var(--card-foreground)); }
+.bg-primary { background-color: hsl(var(--primary)); }
+.bg-muted { background-color: hsl(var(--muted)); }
+.text-muted-foreground { color: hsl(var(--muted-foreground)); }
+.border-border { border-color: hsl(var(--border)); }

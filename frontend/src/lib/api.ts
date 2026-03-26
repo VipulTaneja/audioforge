@@ -1,0 +1,312 @@
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
+export interface JobStemResult {
+  stems?: Stem[];
+  message?: string;
+  demucs_model?: DemucsModel;
+  stem_mode?: StemMode;
+}
+
+export type DemucsModel = 'htdemucs' | 'htdemucs_ft' | 'mdx' | 'mdx_extra';
+export type StemMode = 'four_stem' | 'two_stem_vocals';
+
+export interface SeparationParams {
+  demucs_model?: DemucsModel;
+  stem_mode?: StemMode;
+}
+
+export interface AssetResult {
+  display_name?: string;
+}
+
+export interface Asset {
+  id: string;
+  project_id: string;
+  type: 'original' | 'stem' | 'mix' | 'preset';
+  stem_type?: string;
+  parent_asset_id?: string;
+  s3_key: string;
+  s3_key_preview?: string;
+  duration?: number;
+  channels: number;
+  sample_rate: number;
+  result?: AssetResult;
+  created_by?: string;
+  created_at: string;
+}
+
+export interface Project {
+  id: string;
+  org_id: string;
+  name: string;
+  status: string;
+  created_at: string;
+}
+
+export interface Job {
+  id: string;
+  project_id: string;
+  type: string;
+  status: 'pending' | 'running' | 'succeeded' | 'failed';
+  progress: number;
+  params?: Record<string, unknown>;
+  result?: JobStemResult;
+  error?: string;
+  created_at: string;
+  started_at?: string;
+  ended_at?: string;
+}
+
+export interface JobUpdatePayload {
+  status?: Job['status'];
+  error?: string;
+}
+
+export interface Stem {
+  stem_type: string;
+  asset_id: string;
+  s3_key: string;
+}
+
+class ApiService {
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+      let errorMessage = error.detail || `HTTP ${response.status}`;
+      if (typeof errorMessage === 'object') {
+        errorMessage = JSON.stringify(errorMessage);
+      }
+      throw new Error(errorMessage);
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return response.json();
+  }
+
+  private generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  // Projects
+  async createProject(name: string): Promise<Project> {
+    return this.request<Project>('/api/v1/projects/', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  async getProjects(): Promise<Project[]> {
+    return this.request<Project[]>('/api/v1/projects/');
+  }
+
+  async getProject(id: string): Promise<Project> {
+    return this.request<Project>(`/api/v1/projects/${id}`);
+  }
+
+  // Assets
+  async getPresignedUploadUrl(
+    projectId: string,
+    filename: string,
+    contentType: string
+  ): Promise<{ upload_url: string; s3_key: string }> {
+    return this.request<{ upload_url: string; s3_key: string }>(
+      '/api/v1/assets/presign',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          project_id: projectId,
+          filename,
+          content_type: contentType,
+        }),
+      }
+    );
+  }
+
+  async createAsset(
+    projectId: string,
+    s3Key: string,
+    type: string = 'original',
+    duration?: number
+  ): Promise<Asset> {
+    return this.request<Asset>('/api/v1/assets/', {
+      method: 'POST',
+      body: JSON.stringify({
+        project_id: projectId,
+        s3_key: s3Key,
+        type,
+        duration,
+      }),
+    });
+  }
+
+  async getProjectAssets(projectId: string): Promise<Asset[]> {
+    return this.request<Asset[]>(`/api/v1/assets/project/${projectId}`);
+  }
+
+  async getAsset(id: string): Promise<Asset> {
+    return this.request<Asset>(`/api/v1/assets/${id}`);
+  }
+
+  async updateAsset(id: string, updates: { display_name?: string }): Promise<Asset> {
+    return this.request<Asset>(`/api/v1/assets/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteAsset(id: string): Promise<void> {
+    await this.request<void>(`/api/v1/assets/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getAssetBpm(id: string): Promise<{ bpm: number | null; error?: string }> {
+    return this.request<{ bpm: number | null; error?: string }>(`/api/v1/assets/${id}/bpm`);
+  }
+
+  async getAssetKey(id: string): Promise<{ key: string | null; mode?: string; error?: string }> {
+    return this.request<{ key: string | null; mode?: string; error?: string }>(`/api/v1/assets/${id}/key`);
+  }
+
+  getAssetMixdownUrl(id: string, volumes?: number[], pans?: number[]): string {
+    const params = new URLSearchParams();
+    if (volumes) params.set('volumes', volumes.join(','));
+    if (pans) params.set('pans', pans.join(','));
+    return `${API_BASE_URL}/api/v1/assets/${id}/mixdown?${params.toString()}`;
+  }
+
+  // Jobs
+  async createSeparationJob(
+    projectId: string,
+    assetIds: string[],
+    params: SeparationParams = {}
+  ): Promise<Job> {
+    return this.request<Job>('/api/v1/jobs/', {
+      method: 'POST',
+      body: JSON.stringify({
+        project_id: projectId,
+        type: 'separate',
+        asset_ids: assetIds,
+        params,
+      }),
+    });
+  }
+
+  async getJob(jobId: string): Promise<Job> {
+    return this.request<Job>(`/api/v1/jobs/${jobId}`);
+  }
+
+  async getAllJobs(): Promise<Job[]> {
+    return this.request<Job[]>('/api/v1/jobs/');
+  }
+
+  async updateJob(jobId: string, updates: JobUpdatePayload): Promise<Job> {
+    return this.request<Job>(`/api/v1/jobs/${jobId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async getJobStatus(jobId: string): Promise<{
+    id: string;
+    type: string;
+    status: string;
+    progress: number;
+    result?: JobStemResult;
+    error?: string;
+  }> {
+    return this.request(`/api/v1/jobs/${jobId}/status`);
+  }
+
+  async getProjectJobs(projectId: string): Promise<Job[]> {
+    return this.request<Job[]>(`/api/v1/jobs/project/${projectId}`);
+  }
+
+  // Upload file using presigned URL
+  async uploadFile(
+    file: File,
+    projectId: string,
+    onProgress?: (progress: number) => void
+  ): Promise<{ s3_key: string; asset: Asset }> {
+    // Get presigned URL
+    const { upload_url, s3_key } = await this.getPresignedUploadUrl(
+      projectId,
+      file.name,
+      file.type
+    );
+
+    // Upload directly to S3/MinIO
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) {
+          onProgress((e.loaded / e.total) * 100);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Upload failed'));
+      
+      xhr.open('PUT', upload_url);
+      xhr.setRequestHeader('Content-Type', file.type);
+      xhr.send(file);
+    });
+
+    // Get audio duration
+    const duration = await this.getAudioDuration(file);
+
+    // Create asset record
+    const asset = await this.createAsset(projectId, s3_key, 'original', duration);
+
+    return { s3_key, asset };
+  }
+
+  private getAudioDuration(file: File): Promise<number> {
+    return new Promise((resolve) => {
+      const audio = new Audio();
+      audio.src = URL.createObjectURL(file);
+      audio.onloadedmetadata = () => {
+        URL.revokeObjectURL(audio.src);
+        resolve(audio.duration);
+      };
+      audio.onerror = () => resolve(180); // Default 3 minutes
+    });
+  }
+
+  // Get presigned download URL for an asset
+  getAssetDownloadUrl(assetId: string): string {
+    return `${API_BASE_URL}/api/v1/assets/${assetId}/download`;
+  }
+}
+
+export const api = new ApiService();
