@@ -20,6 +20,7 @@ import {
   ListFilter,
   Music4,
   Pencil,
+  Play,
   RotateCcw,
   Save,
   Sparkles,
@@ -1687,13 +1688,55 @@ export default function ProjectDetailPage() {
                             {getAssetKindLabel(asset)}
                           </span>
                           <span>{formatTime(asset.duration || 0)}</span>
+                          {detectedBpm[asset.id] && (
+                            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                              {detectedBpm[asset.id]} BPM
+                            </span>
+                          )}
+                          {detectedKey[asset.id] && (
+                            <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                              {detectedKey[asset.id]}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); const audio = new Audio(); audio.src = api.getAssetDownloadUrl(asset.id); audio.play(); }}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                          title="Preview"
+                        >
+                          <Play size={16} />
+                        </button>
+                        {asset.type === 'original' && !detectedBpm[asset.id] && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); void handleDetectBpm(asset.id); }}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                            title="Detect BPM"
+                          >
+                            <Timer size={16} />
+                          </button>
+                        )}
+                        {asset.type === 'original' && !detectedKey[asset.id] && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); void handleDetectKey(asset.id); }}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                            title="Detect Key"
+                          >
+                            <Key size={16} />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openAssetsInMixer([asset]); }}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                          title="Open in Mixer"
+                        >
+                          <Music4 size={16} />
+                        </button>
                         {asset.type === 'original' && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleSeparateAsset(asset); }}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition hover:bg-sky-700"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-white transition hover:bg-purple-700"
                             title="Separate"
                           >
                             <Wand2 size={16} />
