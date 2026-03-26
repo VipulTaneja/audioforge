@@ -643,14 +643,6 @@ export default function ProjectDetailPage() {
     setTimelineStems(timelineStems);
   };
 
-  const toggleMixerAssetSelection = (assetId: string) => {
-    setSelectedMixerAssetIds((currentIds) =>
-      currentIds.includes(assetId)
-        ? currentIds.filter((id) => id !== assetId)
-        : [...currentIds, assetId]
-    );
-  };
-
   const sendSelectedAssetsToMixer = () => {
     const selectedAssets = assets.filter((asset) => selectedMixerAssetIds.includes(asset.id));
     if (selectedAssets.length === 0) {
@@ -1209,75 +1201,6 @@ export default function ProjectDetailPage() {
     return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
   }, [isDragging, isPlaying, seek]);
 
-  const toggleStemSelection = (stemId: string) => {
-    setTimelineStems(prev => {
-      const stem = prev.find(s => s.id === stemId);
-      const newSelected = !stem?.isSelected;
-      
-      // Update audio in real-time
-      if (newSelected) {
-        // Start playing this stem if not already playing
-        const ctx = audioContextRef.current;
-        if (ctx && stem && !stem.muted) {
-          const anySolo = prev.some(s => s.solo);
-          if (anySolo && !stem.solo) {
-            // Don't play if another track is soloed
-          } else {
-            // Need to start playback - trigger re-play
-            // The easiest way is to not change isSelected in state
-            // but we need to update the audio nodes
-          }
-        }
-      } else {
-        // Stop this stem's audio
-        const oscNodes = oscillatorsRef.current.get(stemId);
-        if (oscNodes) {
-          try { oscNodes.osc.stop(); } catch {}
-          oscillatorsRef.current.delete(stemId);
-        }
-        
-        if (stem?.assetId) {
-          const source = audioSourceRef.current.get(stem.assetId);
-          if (source) {
-            try { source.stop(); } catch {}
-            audioSourceRef.current.delete(stem.assetId);
-            audioNodesRef.current.delete(stem.assetId);
-          }
-        }
-      }
-      
-      // Update gain for all tracks based on new selection
-      const anySolo = prev.some(s => s.solo);
-      prev.forEach(s => {
-        const nodes = oscillatorsRef.current.get(s.id);
-        const audioNodes = s.assetId ? s.assetId ? audioNodesRef.current.get(s.assetId) : undefined : undefined;
-        
-        let shouldPlay = s.isSelected && !s.muted;
-        if (anySolo) {
-          shouldPlay = s.solo && !s.muted;
-        }
-        
-        if (s.id === stemId) {
-          shouldPlay = newSelected && !s.muted;
-          if (anySolo) {
-            shouldPlay = newSelected && s.solo && !s.muted;
-          }
-        }
-        
-        if (nodes) {
-          nodes.gain.gain.value = shouldPlay ? (s.volume / 100) * 0.3 : 0;
-        }
-        if (audioNodes) {
-          audioNodes.gain.gain.value = shouldPlay ? (s.volume / 100) * 0.3 : 0;
-        }
-      });
-      
-      return prev.map(s => 
-        s.id === stemId ? { ...s, isSelected: newSelected } : s
-      );
-    });
-  };
-
   const toggleMute = (stemId: string) => {
     setTimelineStems(prev => {
       const timelineStems = prev.map(s => {
@@ -1470,6 +1393,11 @@ export default function ProjectDetailPage() {
     });
 
     return [...filteredAssets].sort((assetA, assetB) => {
+      const originalFirst = (asset: Asset) => asset.type === 'original' ? 0 : 1;
+      const sortA = originalFirst(assetA);
+      const sortB = originalFirst(assetB);
+      if (sortA !== sortB) return sortA - sortB;
+
       switch (assetSort) {
         case 'oldest':
           return new Date(assetA.created_at).getTime() - new Date(assetB.created_at).getTime();
@@ -1801,18 +1729,9 @@ export default function ProjectDetailPage() {
                           setSelectedAsset(asset);
                         }
                       }}
-                    >
+                      >
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div className="flex items-start gap-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedMixerAssetIds.includes(asset.id)}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              toggleMixerAssetSelection(asset.id);
-                            }}
-                            className="mt-1 h-4 w-4 rounded accent-blue-600"
-                          />
                           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                             <span className="text-2xl">{asset.type === 'stem' ? '🎛️' : asset.type === 'mix' ? '🎚️' : '🎵'}</span>
                           </div>
@@ -2580,19 +2499,13 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
 
-              {/* Stem rows */}
-              {timelineStems.map((stem) => (
-                <div key={stem.id} className="flex border-b dark:border-gray-700 last:border-b-0 min-h-[60px]">
-                  {/* Stem controls */}
-                  <div className="w-44 flex-shrink-0 p-1.5 bg-white dark:bg-gray-800 border-r dark:border-gray-700">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <input
-                        type="checkbox"
-                        checked={stem.isSelected}
-                        onChange={() => toggleStemSelection(stem.id)}
-                        className="w-3 h-3 rounded accent-blue-600"
-                      />
-                      <span className="text-sm">{stem.icon}</span>
+                  {/* Stem rows */}
+                  {timelineStems.map((stem) => (
+                    <div key={stem.id} className="flex border-b dark:border-gray-700 last:border-b-0 min-h-[60px]">
+                      {/* Stem controls */}
+                      <div className="w-44 flex-shrink-0 p-1.5 bg-white dark:bg-gray-800 border-r dark:border-gray-700">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-sm">{stem.icon}</span>
                       <span className={`font-medium text-xs ${stem.color}`}>{stem.name}</span>
                       <div className="flex-1"></div>
                       <button
