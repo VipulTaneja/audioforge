@@ -3,20 +3,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 from uuid import UUID
+import uuid
 
 from app.core.database import get_db
-from app.core.security import get_current_user
 from app.models.models import TimelineMarker
 from app.schemas.schemas import TimelineMarkerCreate, TimelineMarkerUpdate, TimelineMarkerResponse
 
-router = APIRouter(prefix="/api/v1/projects/{project_id}/markers", tags=["markers"])
+router = APIRouter(prefix="/projects/{project_id}/markers", tags=["markers"])
 
 
 @router.get("", response_model=List[TimelineMarkerResponse])
 async def list_markers(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user),
 ):
     result = await db.execute(
         select(TimelineMarker)
@@ -32,14 +31,13 @@ async def create_marker(
     project_id: UUID,
     marker: TimelineMarkerCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user),
 ):
     db_marker = TimelineMarker(
         project_id=project_id,
         time=marker.time,
         label=marker.label,
         color=marker.color,
-        created_by=current_user.id,
+        created_by=uuid.uuid4(),
     )
     db.add(db_marker)
     await db.flush()
@@ -53,7 +51,6 @@ async def update_marker(
     marker_id: UUID,
     marker: TimelineMarkerUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user),
 ):
     result = await db.execute(
         select(TimelineMarker).where(
@@ -82,7 +79,6 @@ async def delete_marker(
     project_id: UUID,
     marker_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user),
 ):
     result = await db.execute(
         select(TimelineMarker).where(

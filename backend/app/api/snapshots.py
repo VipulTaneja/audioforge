@@ -3,20 +3,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 from uuid import UUID
+import uuid
 
 from app.core.database import get_db
-from app.core.security import get_current_user
 from app.models.models import ProjectSnapshot
 from app.schemas.schemas import ProjectSnapshotCreate, ProjectSnapshotResponse
 
-router = APIRouter(prefix="/api/v1/projects/{project_id}/snapshots", tags=["snapshots"])
+router = APIRouter(prefix="/projects/{project_id}/snapshots", tags=["snapshots"])
 
 
 @router.get("", response_model=List[ProjectSnapshotResponse])
 async def list_snapshots(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user),
 ):
     result = await db.execute(
         select(ProjectSnapshot)
@@ -32,14 +31,13 @@ async def create_snapshot(
     project_id: UUID,
     snapshot: ProjectSnapshotCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user),
 ):
     db_snapshot = ProjectSnapshot(
         project_id=project_id,
         name=snapshot.name,
         description=snapshot.description,
         data=snapshot.data,
-        created_by=current_user.id,
+        created_by=uuid.uuid4(),
     )
     db.add(db_snapshot)
     await db.flush()
@@ -52,7 +50,6 @@ async def get_snapshot(
     project_id: UUID,
     snapshot_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user),
 ):
     result = await db.execute(
         select(ProjectSnapshot).where(
@@ -71,7 +68,6 @@ async def delete_snapshot(
     project_id: UUID,
     snapshot_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user),
 ):
     result = await db.execute(
         select(ProjectSnapshot).where(
