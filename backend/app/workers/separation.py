@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from celery import Task
 from celery.exceptions import SoftTimeLimitExceeded
+import soundfile as sf
 
 from app.workers.celery_app import celery_app
 
@@ -137,6 +138,13 @@ def separate_audio_demucs(
                     stem_s3_key = f"projects/{project_id}/stems/{job_id}/{filename}"
                     storage_service.upload_file(stem_path, stem_s3_key)
                     
+                    # Get duration from audio file
+                    try:
+                        info = sf.info(stem_path)
+                        duration = info.frames / info.samplerate
+                    except Exception:
+                        duration = 0
+                    
                     # Create stem asset
                     stem_asset = Asset(
                         project_id=project_id,
@@ -145,6 +153,7 @@ def separate_audio_demucs(
                         parent_asset_id=input_asset_id,
                         s3_key=stem_s3_key,
                         s3_key_preview=stem_s3_key,
+                        duration=duration,
                         created_by=asset.created_by,
                     )
                     db.add(stem_asset)
