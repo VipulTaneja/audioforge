@@ -1,6 +1,24 @@
 # Mixer Waveform Display Issue
 
-## Problem Statement
+## Status: ✅ RESOLVED
+
+## Resolution
+
+The issue was that the backend returns a fixed 200 waveform peaks, but the canvas was drawing more bars than peaks on wide screens, which compressed the waveform into the left portion of the display.
+
+**Fix Applied:**
+1. Added `ResizeObserver` to measure the actual container width
+2. Added `canvasSize` state to track container dimensions and trigger re-renders
+3. Interpolated the 200 backend peaks across the full canvas width
+4. Fixed timeline ruler to use percentage-based positioning for alignment
+5. Cleaned up TypeScript issues around audio preloading and oscillator startup
+
+**Files Modified:**
+- `frontend/src/app/projects/[id]/page.tsx` - Waveform component with ResizeObserver and peak interpolation
+
+---
+
+## Problem Statement (Original)
 
 In the mixer component of the AudioForge frontend, the waveform visualization has incorrect display issues:
 

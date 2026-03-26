@@ -393,6 +393,7 @@ This installs:
 - **Demucs** - AI-powered source separation (extracts vocals, drums, bass, other)
 - **soundfile** - For reading audio files (used instead of ffmpeg for compatibility)
 - **scipy** - For audio processing operations
+- **librosa** - For audio analysis (BPM detection, key detection, feature extraction)
 
 ### Demucs Setup Notes
 

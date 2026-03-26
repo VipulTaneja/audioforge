@@ -129,5 +129,5 @@ MINIO_SECRET_KEY=minioadmin
 - Next.js proxies `/api/v1/*` to backend on port 8000
 
 ## Dependencies
-- **Backend**: fastapi, uvicorn, sqlalchemy, asyncpg, celery, boto3, demucs, soundfile, scipy, numpy
+- **Backend**: fastapi, uvicorn, sqlalchemy, asyncpg, celery, boto3, demucs, soundfile, scipy, numpy, librosa
 - **Frontend**: next, react, tailwindcss, lucide-react, eslint, eslint-config-next
