@@ -34,7 +34,7 @@ These require some audio processing but are well-documented.
 | **Time Stretching** | 4/10 | Pending | Phase vocoder or WSOLA |
 | **Compressor** | 4/10 | Pending | Requires audio pipeline changes |
 | **EQ (Equalizer)** | 4/10 | Pending | Requires audio pipeline changes |
-| **Loudness Meter (LUFS)** | 4/10 | Pending | Per ITU-R BS.1770 standard |
+| **Loudness Meter (LUFS)** | 4/10 | ✅ DONE | Per ITU-R BS.1770 standard |
 
 ---
 
@@ -49,12 +49,12 @@ These require more complex algorithms or integration work.
 | **De-clipping** | 6/10 | Interpolation + spectral repair |
 | **Voice Enhancement** | 5/10 | Combine noise reduction + EQ + compression |
 | **Vocal Doubler** | 5/10 | Time-stretch + pitch variation + delay |
-| **Spectral Analyzer** | 5/10 | FFT visualization, real-time updates |
-| **Vocal Harmonizer** | 6/10 | Pitch shifting + reverb + delay |
-| **AI Auto-Mix** | 7/10 | Train model on professional mixes |
-| **Stem Enhancement** | 6/10 | Upsampling + refinement models |
-| **Comments & Markers** | 5/10 | Database + UI timeline markers |
-| **Version History** | 5/10 | Snapshot assets/settings on save |
+| **Spectral Analyzer** | 5/10 | ✅ DONE | FFT visualization, real-time updates |
+| **Vocal Harmonizer** | 6/10 | Pending | Pitch shifting + reverb + delay |
+| **AI Auto-Mix** | 7/10 | Pending | Train model on professional mixes |
+| **Stem Enhancement** | 6/10 | Pending | Upsampling + refinement models |
+| **Comments & Markers** | 5/10 | ✅ DONE | Database + UI timeline markers |
+| **Version History** | 5/10 | ✅ DONE | Snapshot assets/settings on save |
 
 ---
 
