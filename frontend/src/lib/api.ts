@@ -332,6 +332,27 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  async listSnapshots(projectId: string): Promise<ProjectSnapshot[]> {
+    return this.request<ProjectSnapshot[]>(`/projects/${projectId}/snapshots`);
+  }
+
+  async createSnapshot(projectId: string, snapshot: ProjectSnapshotCreate): Promise<ProjectSnapshot> {
+    return this.request<ProjectSnapshot>(`/projects/${projectId}/snapshots`, {
+      method: 'POST',
+      body: JSON.stringify(snapshot),
+    });
+  }
+
+  async getSnapshot(projectId: string, snapshotId: string): Promise<ProjectSnapshot> {
+    return this.request<ProjectSnapshot>(`/projects/${projectId}/snapshots/${snapshotId}`);
+  }
+
+  async deleteSnapshot(projectId: string, snapshotId: string): Promise<void> {
+    return this.request<void>(`/projects/${projectId}/snapshots/${snapshotId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export interface TimelineMarker {
@@ -354,6 +375,22 @@ export interface TimelineMarkerUpdate {
   time?: number;
   label?: string;
   color?: string;
+}
+
+export interface ProjectSnapshot {
+  id: string;
+  project_id: string;
+  name: string;
+  description?: string;
+  data?: Record<string, unknown>;
+  created_by: string;
+  created_at: string;
+}
+
+export interface ProjectSnapshotCreate {
+  name: string;
+  description?: string;
+  data?: Record<string, unknown>;
 }
 
 export const api = new ApiService();

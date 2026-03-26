@@ -11,6 +11,7 @@ from app.api import (
     mix_sessions_router,
 )
 from app.api.markers import router as markers_router
+from app.api.snapshots import router as snapshots_router
 from app.api.websocket import router as websocket_router
 
 settings = get_settings()
@@ -36,6 +37,7 @@ app.include_router(assets_router, prefix="/api/v1")
 app.include_router(jobs_router, prefix="/api/v1")
 app.include_router(mix_sessions_router, prefix="/api/v1")
 app.include_router(markers_router, prefix="/api/v1")
+app.include_router(snapshots_router, prefix="/api/v1")
 app.include_router(websocket_router)
 
 

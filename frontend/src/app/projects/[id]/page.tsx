@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { api, Asset, DemucsModel, Stem, StemMode, TimelineMarker } from '@/lib/api';
+import { api, Asset, DemucsModel, Stem, StemMode, TimelineMarker, ProjectSnapshot } from '@/lib/api';
 import { formatBrowserDateTime } from '@/lib/datetime';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
@@ -14,6 +14,7 @@ import {
   Flag,
   Gauge,
   Headphones,
+  History,
   Key,
   Layers3,
   ListFilter,
@@ -240,6 +241,10 @@ export default function ProjectDetailPage() {
   const [isAddingMarker, setIsAddingMarker] = useState(false);
   const [editingMarkerId, setEditingMarkerId] = useState<string | null>(null);
   const [markerDraft, setMarkerDraft] = useState('');
+  const [snapshots, setSnapshots] = useState<ProjectSnapshot[]>([]);
+  const [showSnapshots, setShowSnapshots] = useState(false);
+  const [snapshotName, setSnapshotName] = useState('');
+  const [snapshotDesc, setSnapshotDesc] = useState('');
   
   const playbackRef = useRef<NodeJS.Timeout | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -294,14 +299,16 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     const loadProjectData = async () => {
       try {
-        const [project, projectAssets, projectMarkers] = await Promise.all([
+        const [project, projectAssets, projectMarkers, projectSnapshots] = await Promise.all([
           api.getProject(projectId),
           api.getProjectAssets(projectId),
           api.listMarkers(projectId).catch(() => []),
+          api.listSnapshots(projectId).catch(() => []),
         ]);
 
         setProjectName(project.name);
         setMarkers(projectMarkers);
+        setSnapshots(projectSnapshots);
         hydrateProjectAssets(projectAssets);
       } catch (error) {
         console.error('Failed to load project data:', error);
@@ -820,6 +827,61 @@ export default function ProjectDetailPage() {
   const cancelEditingMarker = () => {
     setEditingMarkerId(null);
     setMarkerDraft('');
+  };
+
+  const handleSaveSnapshot = async () => {
+    if (!snapshotName.trim()) return;
+    try {
+      const mixData = {
+        stems: timelineStems.map(s => ({
+          id: s.id,
+          name: s.name,
+          volume: s.volume,
+          pan: s.pan,
+          muted: s.muted,
+          solo: s.solo,
+          isSelected: s.isSelected,
+        })),
+        masterVolume,
+      };
+      const newSnapshot = await api.createSnapshot(projectId, {
+        name: snapshotName.trim(),
+        description: snapshotDesc.trim() || undefined,
+        data: mixData,
+      });
+      setSnapshots(prev => [newSnapshot, ...prev]);
+      setSnapshotName('');
+      setSnapshotDesc('');
+    } catch (error) {
+      console.error('Failed to save snapshot:', error);
+    }
+  };
+
+  const handleLoadSnapshot = (snapshot: ProjectSnapshot) => {
+    if (!snapshot.data) return;
+    const data = snapshot.data as { stems?: Array<{ id: string; volume: number; pan: number; muted: boolean; solo: boolean; isSelected: boolean }>; masterVolume?: number };
+    if (data.stems) {
+      setTimelineStems(prev => prev.map(stem => {
+        const saved = data.stems!.find(s => s.id === stem.id);
+        if (saved) {
+          return { ...stem, ...saved };
+        }
+        return stem;
+      }));
+    }
+    if (typeof data.masterVolume === 'number') {
+      setMasterVolume(data.masterVolume);
+    }
+    setShowSnapshots(false);
+  };
+
+  const handleDeleteSnapshot = async (snapshotId: string) => {
+    try {
+      await api.deleteSnapshot(projectId, snapshotId);
+      setSnapshots(prev => prev.filter(s => s.id !== snapshotId));
+    } catch (error) {
+      console.error('Failed to delete snapshot:', error);
+    }
   };
 
   const togglePlay = useCallback(async () => {
@@ -2289,8 +2351,76 @@ export default function ProjectDetailPage() {
                     <Headphones size={12} />
                     Clear Solo
                   </button>
+                  <button
+                    onClick={() => setShowSnapshots(!showSnapshots)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-700 transition hover:bg-purple-100 dark:border-purple-900/30 dark:bg-purple-900/20 dark:text-purple-300"
+                  >
+                    <History size={12} />
+                    Snapshots ({snapshots.length})
+                  </button>
                 </div>
               </div>
+
+              {/* Snapshots Panel */}
+              {showSnapshots && (
+                <div className="border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Save Current Mix</span>
+                  </div>
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={snapshotName}
+                      onChange={(e) => setSnapshotName(e.target.value)}
+                      placeholder="Snapshot name..."
+                      className="flex-1 text-xs px-2 py-1.5 border rounded dark:bg-gray-800 dark:border-gray-600"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSaveSnapshot(); }}
+                    />
+                    <input
+                      type="text"
+                      value={snapshotDesc}
+                      onChange={(e) => setSnapshotDesc(e.target.value)}
+                      placeholder="Description (optional)"
+                      className="flex-1 text-xs px-2 py-1.5 border rounded dark:bg-gray-800 dark:border-gray-600"
+                    />
+                    <button
+                      onClick={handleSaveSnapshot}
+                      disabled={!snapshotName.trim()}
+                      className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded hover:bg-purple-600 disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
+                  {snapshots.length > 0 ? (
+                    <div className="space-y-1">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Saved Snapshots</span>
+                      {snapshots.map((snap) => (
+                        <div key={snap.id} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded border">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium truncate">{snap.name}</div>
+                            {snap.description && <div className="text-[10px] text-gray-500 truncate">{snap.description}</div>}
+                            <div className="text-[9px] text-gray-400">{new Date(snap.created_at).toLocaleString()}</div>
+                          </div>
+                          <button
+                            onClick={() => handleLoadSnapshot(snap)}
+                            className="px-2 py-1 text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded hover:bg-blue-200"
+                          >
+                            Load
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSnapshot(snap.id)}
+                            className="p-1 text-red-500 hover:text-red-600"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-400 text-center py-2">No snapshots saved yet</div>
+                  )}
+                </div>
+              )}
 
               {/* Spectrum Analyzer Visualization */}
               {showSpectrum && (

@@ -181,6 +181,25 @@ class TimelineMarkerResponse(BaseModel):
         from_attributes = True
 
 
+class ProjectSnapshotCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    data: Optional[dict] = None
+
+
+class ProjectSnapshotResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    name: str
+    description: Optional[str] = None
+    data: Optional[dict] = None
+    created_by: UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
