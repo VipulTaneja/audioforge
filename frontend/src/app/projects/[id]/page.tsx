@@ -757,6 +757,11 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleSeparateAsset = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setActiveTab('separate');
+  };
+
   const startRenamingAsset = (asset: Asset) => {
     setEditingAssetId(asset.id);
     setAssetNameDraft(getAssetDisplayName(asset));
