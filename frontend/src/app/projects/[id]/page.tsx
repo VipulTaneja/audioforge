@@ -1736,7 +1736,7 @@ export default function ProjectDetailPage() {
                         >
                           {playingAssetId === asset.id ? <Square size={16} /> : <Play size={16} />}
                         </button>
-                        {asset.type === 'original' && !detectedBpm[asset.id] && (
+                        {!detectedBpm[asset.id] && (
                           <button
                             onClick={(e) => { e.stopPropagation(); void handleDetectBpm(asset.id); }}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
@@ -1745,7 +1745,7 @@ export default function ProjectDetailPage() {
                             <Timer size={16} />
                           </button>
                         )}
-                        {asset.type === 'original' && !detectedKey[asset.id] && (
+                        {!detectedKey[asset.id] && (
                           <button
                             onClick={(e) => { e.stopPropagation(); void handleDetectKey(asset.id); }}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
