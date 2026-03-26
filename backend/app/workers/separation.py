@@ -138,14 +138,14 @@ def separate_audio_demucs(
                     stem_s3_key = f"projects/{project_id}/stems/{job_id}/{filename}"
                     storage_service.upload_file(stem_path, stem_s3_key)
                     
-                    # Get duration from audio file
-                    duration = 0
+                    # Get duration from audio file, fallback to parent asset duration
+                    duration = asset.duration or 0
                     try:
                         info = sf.info(stem_path)
                         duration = info.frames / info.samplerate
-                        logger.info(f"Stem {stem_type}: duration={duration}, frames={info.frames}, samplerate={info.samplerate}")
+                        logger.info(f"Stem {stem_type}: duration={duration}")
                     except Exception as e:
-                        logger.warning(f"Could not get duration for stem {stem_type}: {e}")
+                        logger.warning(f"Could not get duration for stem {stem_type}, using parent: {e}")
                     
                     # Create stem asset
                     stem_asset = Asset(
