@@ -233,6 +233,8 @@ export default function ProjectDetailPage() {
   const [masterPhase, setMasterPhase] = useState(0);
   const [showSpectrum, setShowSpectrum] = useState(false);
   const [spectrumData, setSpectrumData] = useState<number[]>([]);
+  const [loudnessShortTerm, setLoudnessShortTerm] = useState(-Infinity);
+  const [loudnessHistory, setLoudnessHistory] = useState<number[]>([]);
   
   const playbackRef = useRef<NodeJS.Timeout | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -398,6 +400,23 @@ export default function ProjectDetailPage() {
     return result;
   }, []);
 
+  const getLoudness = useCallback((analyser: AnalyserNode): number => {
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteTimeDomainData(dataArray);
+    
+    let sumSquares = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const sample = (dataArray[i] - 128) / 128;
+      sumSquares += sample * sample;
+    }
+    
+    const rms = Math.sqrt(sumSquares / dataArray.length);
+    const dbfs = 20 * Math.log10(Math.max(rms, 0.0001));
+    const lufs = dbfs - 0.691;
+    
+    return Math.max(-70, Math.min(0, lufs));
+  }, []);
+
   const syncLiveAudioState = useCallback((stems: TimelineStem[]) => {
     const anySolo = stems.some((stem) => stem.solo);
 
@@ -428,6 +447,8 @@ export default function ProjectDetailPage() {
       }
       setTrackLevels({});
       setMasterLevel(0);
+      setLoudnessShortTerm(-Infinity);
+      setLoudnessHistory([]);
       return;
     }
 
@@ -447,6 +468,13 @@ export default function ProjectDetailPage() {
       if (showSpectrum) {
         setSpectrumData(masterAnalyserRef.current ? getSpectrumData(masterAnalyserRef.current) : []);
       }
+      const loudness = masterAnalyserRef.current ? getLoudness(masterAnalyserRef.current) : -Infinity;
+      setLoudnessShortTerm(loudness);
+      setLoudnessHistory(prev => {
+        const newHistory = [...prev, loudness];
+        if (newHistory.length > 50) newHistory.shift();
+        return newHistory;
+      });
       meterAnimationRef.current = requestAnimationFrame(updateMeters);
     };
 
@@ -458,7 +486,7 @@ export default function ProjectDetailPage() {
         meterAnimationRef.current = null;
       }
     };
-  }, [getMeterLevel, getMeterRms, getPhaseCorrelation, getSpectrumData, isPlaying, showSpectrum, timelineStems]);
+  }, [getLoudness, getMeterLevel, getMeterRms, getPhaseCorrelation, getSpectrumData, isPlaying, showSpectrum, timelineStems]);
 
   const initAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
@@ -2119,6 +2147,40 @@ export default function ProjectDetailPage() {
                 >
                   <AudioWaveform size={14} />
                 </button>
+
+                {/* Loudness Meter */}
+                <div className="flex items-center gap-1" title={`Short-term: ${loudnessShortTerm > -70 ? loudnessShortTerm.toFixed(1) : '-∞'} LUFS`}>
+                  <span className="text-[9px] text-gray-400">LUFS</span>
+                  <div className="w-16 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full transition-all bg-sky-500"
+                      style={{ width: `${loudnessShortTerm > -70 ? Math.max(2, ((loudnessShortTerm + 70) / 70) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] font-mono text-gray-400">
+                    {loudnessShortTerm > -70 ? loudnessShortTerm.toFixed(1) : '-∞'}
+                  </span>
+                </div>
+
+                {/* Loudness History Mini Graph */}
+                <div className="w-20 h-3 rounded bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                  <div className="h-full flex items-end gap-[1px] px-[2px]">
+                    {loudnessHistory.length > 0 ? (
+                      loudnessHistory.map((val, i) => (
+                        <div
+                          key={i}
+                          className="flex-1 rounded-t"
+                          style={{
+                            height: `${Math.max(10, ((val + 70) / 70) * 100)}%`,
+                            backgroundColor: val > -14 ? '#f59e0b' : '#22c55e',
+                          }}
+                        />
+                      ))
+                    ) : (
+                      <div className="w-full h-full" />
+                    )}
+                  </div>
+                </div>
 
                 <div className="flex-1"></div>
 
