@@ -217,6 +217,7 @@ export default function ProjectDetailPage() {
   const [selectedMixerAssetIds, setSelectedMixerAssetIds] = useState<string[]>([]);
   const [isDeletingAssetId, setIsDeletingAssetId] = useState<string | null>(null);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [playingAssetId, setPlayingAssetId] = useState<string | null>(null);
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
   const [assetNameDraft, setAssetNameDraft] = useState('');
   const [detectedBpm, setDetectedBpm] = useState<Record<string, number | null>>({});
@@ -263,6 +264,25 @@ export default function ProjectDetailPage() {
   const masterGainRef = useRef<GainNode | null>(null);
   const masterAnalyserRef = useRef<AnalyserNode | null>(null);
   const meterAnimationRef = useRef<number | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handlePlayAsset = (asset: Asset) => {
+    if (playingAssetId === asset.id) {
+      previewAudioRef.current?.pause();
+      previewAudioRef.current = null;
+      setPlayingAssetId(null);
+    } else {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+      }
+      const audio = new Audio();
+      audio.src = api.getAssetDownloadUrl(asset.id);
+      audio.onended = () => setPlayingAssetId(null);
+      audio.play();
+      previewAudioRef.current = audio;
+      setPlayingAssetId(asset.id);
+    }
+  };
 
   const hydrateProjectAssets = useCallback((projectAssets: Asset[]) => {
     setAssets(projectAssets);
@@ -1698,15 +1718,23 @@ export default function ProjectDetailPage() {
                               {detectedKey[asset.id]}
                             </span>
                           )}
+                          <span className="ml-auto flex items-center gap-1 text-[10px] text-gray-400">
+                            <Clock3 size={12} />
+                            {formatTime(asset.duration || 0)}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={(e) => { e.stopPropagation(); const audio = new Audio(); audio.src = api.getAssetDownloadUrl(asset.id); audio.play(); }}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                          title="Preview"
+                          onClick={(e) => { e.stopPropagation(); handlePlayAsset(asset); }}
+                          className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+                            playingAssetId === asset.id
+                              ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300'
+                              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'
+                          }`}
+                          title={playingAssetId === asset.id ? 'Stop' : 'Play'}
                         >
-                          <Play size={16} />
+                          {playingAssetId === asset.id ? <Square size={16} /> : <Play size={16} />}
                         </button>
                         {asset.type === 'original' && !detectedBpm[asset.id] && (
                           <button
