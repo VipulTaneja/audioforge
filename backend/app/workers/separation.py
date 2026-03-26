@@ -245,6 +245,7 @@ def _report_progress(task: Task | None, job_id: str, progress: int, status_messa
 
     from app.core.database import SessionLocal
     from app.models import Job, JobStatus
+    from datetime import datetime
 
     try:
         with SessionLocal() as db:
@@ -257,6 +258,8 @@ def _report_progress(task: Task | None, job_id: str, progress: int, status_messa
             job.progress = progress
             if job.status != JobStatus.SUCCEEDED.value:
                 job.status = JobStatus.RUNNING.value
+            if job.started_at is None:
+                job.started_at = datetime.utcnow()
             job.result = current_result
             db.commit()
     except Exception as e:
