@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   ArrowUpDown,
   AudioWaveform,
+  CheckSquare,
   Clock3,
   Download,
   Flag,
@@ -23,6 +24,7 @@ import {
   Save,
   Sparkles,
   SplitSquareVertical,
+  Square,
   Timer,
   Trash2,
   UploadCloud,
@@ -211,7 +213,9 @@ export default function ProjectDetailPage() {
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [timelineStems, setTimelineStems] = useState<TimelineStem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedMixerAssetIds, setSelectedMixerAssetIds] = useState<string[]>([]);
   const [isDeletingAssetId, setIsDeletingAssetId] = useState<string | null>(null);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
   const [assetNameDraft, setAssetNameDraft] = useState('');
   const [detectedBpm, setDetectedBpm] = useState<Record<string, number | null>>({});
@@ -639,7 +643,8 @@ export default function ProjectDetailPage() {
     setTimelineStems(timelineStems);
   };
 
-  const openAssetsInMixer = (selectedAssets: Asset[]) => {
+  const sendSelectedAssetsToMixer = () => {
+    const selectedAssets = assets.filter((asset) => selectedMixerAssetIds.includes(asset.id));
     if (selectedAssets.length === 0) {
       return;
     }
@@ -650,6 +655,42 @@ export default function ProjectDetailPage() {
     actualTimeRef.current = 0;
     playbackOffsetRef.current = 0;
     setActiveTab('mix');
+  };
+
+  const openAssetsInMixer = (selectedAssets: Asset[]) => {
+    if (selectedAssets.length === 0) {
+      return;
+    }
+
+    setSelectedMixerAssetIds(selectedAssets.map((asset) => asset.id));
+    setTimelineStems(buildTimelineStemsFromAssets(selectedAssets));
+    setIsMixed(true);
+    setCurrentTime(0);
+    actualTimeRef.current = 0;
+    playbackOffsetRef.current = 0;
+    setActiveTab('mix');
+  };
+
+  const handleDeleteSelectedAssets = async () => {
+    if (selectedMixerAssetIds.length === 0) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    try {
+      const assetIdsToDelete = Array.from(
+        new Set(selectedMixerAssetIds.filter((assetId) => assets.some((asset) => asset.id === assetId)))
+      );
+
+      await Promise.allSettled(assetIdsToDelete.map((assetId) => api.deleteAsset(assetId)));
+      const refreshedAssets = await api.getProjectAssets(projectId);
+      hydrateProjectAssets(refreshedAssets);
+      setSelectedMixerAssetIds([]);
+    } catch (error) {
+      console.error('Failed to delete selected assets:', error);
+    } finally {
+      setIsBulkDeleting(false);
+    }
   };
 
   const handleDeleteAsset = async (assetId: string) => {
@@ -1374,6 +1415,10 @@ export default function ProjectDetailPage() {
       }
     });
   }, [assetFilter, assetSearch, assetSort, assets]);
+  const displayedAssetIds = displayedAssets.map((asset) => asset.id);
+  const selectedVisibleAssetCount = displayedAssetIds.filter((assetId) =>
+    selectedMixerAssetIds.includes(assetId)
+  ).length;
 
   useEffect(() => {
     if (stemMode === 'four_stem' && !FOUR_STEM_MODELS.has(demucsModel)) {
@@ -1574,7 +1619,7 @@ export default function ProjectDetailPage() {
                   </p>
                 </div>
                 <div className="rounded-2xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-200">
-                  {displayedAssets.length} visible
+                  {selectedMixerAssetIds.length} selected · {displayedAssets.length} visible
                 </div>
               </div>
               {assets.length > 0 ? (
@@ -1617,6 +1662,48 @@ export default function ProjectDetailPage() {
                       <option value="type">Type</option>
                     </select>
                   </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() =>
+                        setSelectedMixerAssetIds((currentIds) =>
+                          Array.from(new Set([...currentIds, ...displayedAssetIds]))
+                        )
+                      }
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-300 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={displayedAssets.length === 0 || selectedVisibleAssetCount === displayedAssets.length}
+                      title="Select all visible assets"
+                      aria-label="Select all visible assets"
+                    >
+                      <CheckSquare size={18} />
+                    </button>
+                    <button
+                      onClick={() => setSelectedMixerAssetIds([])}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-300 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={selectedMixerAssetIds.length === 0}
+                      title="Clear selection"
+                      aria-label="Clear selection"
+                    >
+                      <Square size={18} />
+                    </button>
+                    <button
+                      onClick={sendSelectedAssetsToMixer}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={selectedMixerAssetIds.length === 0 || isBulkDeleting}
+                      title={`Open ${selectedMixerAssetIds.length} selected asset(s) in mixer`}
+                      aria-label={`Open ${selectedMixerAssetIds.length} selected asset(s) in mixer`}
+                    >
+                      <Music4 size={18} />
+                    </button>
+                    <button
+                      onClick={handleDeleteSelectedAssets}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-red-600 text-white transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={selectedMixerAssetIds.length === 0 || isBulkDeleting}
+                      title={`Remove ${selectedMixerAssetIds.length} selected asset(s)`}
+                      aria-label={`Remove ${selectedMixerAssetIds.length} selected asset(s)`}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-4">
                   {displayedAssets.map((asset) => (
@@ -1631,6 +1718,19 @@ export default function ProjectDetailPage() {
                       >
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div className="flex items-start gap-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedMixerAssetIds.includes(asset.id)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setSelectedMixerAssetIds((currentIds) =>
+                                currentIds.includes(asset.id)
+                                  ? currentIds.filter((id) => id !== asset.id)
+                                  : [...currentIds, asset.id]
+                              );
+                            }}
+                            className="mt-1 h-4 w-4 rounded accent-blue-600"
+                          />
                           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                             <span className="text-2xl">{asset.type === 'stem' ? '🎛️' : asset.type === 'mix' ? '🎚️' : '🎵'}</span>
                           </div>
