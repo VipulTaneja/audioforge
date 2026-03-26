@@ -1536,373 +1536,253 @@ export default function ProjectDetailPage() {
         </section>
         {/* Upload Tab */}
         {activeTab === 'upload' && (
-          <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-[0.95fr_1.25fr] xl:items-start">
-            <div className="rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
-              <div className="mb-5 flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600 dark:text-sky-300">Ingest</p>
-                  <h2 className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">Upload Audio Files</h2>
-                  <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Drop source files into the project to keep originals and generated assets together.
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-sky-50 p-3 text-sky-600 dark:bg-sky-950/40 dark:text-sky-200">
-                  <UploadCloud size={20} />
-                </div>
-              </div>
-              <div 
-                className="rounded-[28px] border-2 border-dashed border-sky-200 bg-sky-50/70 p-8 text-center transition hover:border-sky-400 dark:border-sky-900/60 dark:bg-sky-950/20 dark:hover:border-sky-500"
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (fileInputRef.current) {
-                    const dataTransfer = new DataTransfer();
-                    Array.from(e.dataTransfer.files).forEach(file => dataTransfer.items.add(file));
-                    fileInputRef.current.files = dataTransfer.files;
-                    fileInputRef.current.dispatchEvent(new Event('change', { bubbles: true }));
-                  }
-                }}
-              >
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white text-sky-600 shadow-sm dark:bg-gray-900 dark:text-sky-200">
-                  <UploadCloud size={28} />
-                </div>
-                <p className="mb-2 text-base font-medium text-gray-800 dark:text-gray-100">Drag and drop audio files here</p>
-                <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">WAV, MP3, FLAC and similar audio formats are supported.</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="audio/*"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
-                <button 
-                  onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                  className="rounded-full bg-sky-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-sky-700"
-                  disabled={isUploading}
-                >
-                  {isUploading ? `Uploading... ${Math.round(uploadProgress)}%` : 'Choose Files'}
-                </button>
-              </div>
-              <div className="mt-5 rounded-[28px] border border-emerald-200 bg-emerald-50/70 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/20">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Create</p>
-                    <h3 className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">Open Asset Composer</h3>
-                    <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                      Create musical assets in a dedicated workspace with scale-aware note suggestions, phrase presets,
-                      octave transpose, preview, and save.
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-white/80 p-3 text-emerald-600 shadow-sm dark:bg-gray-900/60 dark:text-emerald-300">
-                    <Wand2 size={20} />
-                  </div>
-                </div>
-                <button
-                  onClick={() => router.push(`/projects/${projectId}/create-asset`)}
-                  className="mt-5 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
-                >
-                  <Music4 size={16} />
-                  Create New Musical Asset
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
-              <div className="mb-5 flex items-center justify-between gap-4">
+          <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-[1.3fr_0.8fr] xl:items-start">
+            <div className="rounded-[20px] border border-white/70 bg-white/80 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
+              <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Library</p>
-                  <h3 className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">Project Assets</h3>
-                  <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Rename files for clarity, preview them instantly, and send only the right assets to the mixer.
-                  </p>
+                  <h3 className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">Project Assets</h3>
                 </div>
-                <div className="rounded-2xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-200">
-                  {selectedMixerAssetIds.length} selected · {displayedAssets.length} visible
-                </div>
-              </div>
-              {assets.length > 0 ? (
-                <>
-                <div className="mb-5 grid gap-3 xl:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
-                  <label className="relative block">
-                    <input
-                      value={assetSearch}
-                      onChange={(e) => setAssetSearch(e.target.value)}
-                      placeholder="Search assets by name, type, or file"
-                      className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-sky-400 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-                    />
-                  </label>
-                  <label className="relative block">
-                    <ListFilter size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <select
-                      value={assetFilter}
-                      onChange={(e) => setAssetFilter(e.target.value as AssetFilterValue)}
-                      className="w-full appearance-none rounded-2xl border border-gray-300 bg-white py-3 pl-11 pr-4 text-sm text-gray-900 outline-none transition focus:border-sky-400 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-                    >
-                      <option value="all">All asset types</option>
-                      <option value="original">Originals</option>
-                      <option value="stem">Stems</option>
-                      <option value="mix">Mixes</option>
-                      <option value="preset">Presets</option>
-                    </select>
-                  </label>
-                  <label className="relative block">
-                    <ArrowUpDown size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <select
-                      value={assetSort}
-                      onChange={(e) => setAssetSort(e.target.value as AssetSortValue)}
-                      className="w-full appearance-none rounded-2xl border border-gray-300 bg-white py-3 pl-11 pr-4 text-sm text-gray-900 outline-none transition focus:border-sky-400 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-                    >
-                      <option value="newest">Newest first</option>
-                      <option value="oldest">Oldest first</option>
-                      <option value="name_asc">Name A-Z</option>
-                      <option value="name_desc">Name Z-A</option>
-                      <option value="duration_desc">Longest first</option>
-                      <option value="type">Type</option>
-                    </select>
-                  </label>
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                    {selectedMixerAssetIds.length} sel · {displayedAssets.length} vis
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       onClick={() =>
                         setSelectedMixerAssetIds((currentIds) =>
                           Array.from(new Set([...currentIds, ...displayedAssetIds]))
                         )
                       }
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-300 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50"
                       disabled={displayedAssets.length === 0 || selectedVisibleAssetCount === displayedAssets.length}
-                      title="Select all visible assets"
-                      aria-label="Select all visible assets"
+                      title="Select all"
                     >
-                      <CheckSquare size={18} />
+                      <CheckSquare size={16} />
                     </button>
                     <button
                       onClick={() => setSelectedMixerAssetIds([])}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-300 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50"
                       disabled={selectedMixerAssetIds.length === 0}
                       title="Clear selection"
-                      aria-label="Clear selection"
                     >
-                      <Square size={18} />
+                      <Square size={16} />
                     </button>
                     <button
                       onClick={sendSelectedAssetsToMixer}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:opacity-50"
                       disabled={selectedMixerAssetIds.length === 0 || isBulkDeleting}
-                      title={`Open ${selectedMixerAssetIds.length} selected asset(s) in mixer`}
-                      aria-label={`Open ${selectedMixerAssetIds.length} selected asset(s) in mixer`}
+                      title="Open in mixer"
                     >
-                      <Music4 size={18} />
+                      <Music4 size={16} />
                     </button>
                     <button
                       onClick={handleDeleteSelectedAssets}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-red-600 text-white transition hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-red-600 text-white transition hover:bg-red-700 disabled:opacity-50"
                       disabled={selectedMixerAssetIds.length === 0 || isBulkDeleting}
-                      title={`Remove ${selectedMixerAssetIds.length} selected asset(s)`}
-                      aria-label={`Remove ${selectedMixerAssetIds.length} selected asset(s)`}
+                      title="Delete selected"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
-                <div className="space-y-4">
+              </div>
+              <div className="mb-4 grid gap-2 xl:grid-cols-[1fr_150px_150px]">
+                <input
+                  value={assetSearch}
+                  onChange={(e) => setAssetSearch(e.target.value)}
+                  placeholder="Search assets..."
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-sky-400 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                />
+                <select
+                  value={assetFilter}
+                  onChange={(e) => setAssetFilter(e.target.value as AssetFilterValue)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-2 py-2 text-xs text-gray-900 outline-none dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                >
+                  <option value="all">All types</option>
+                  <option value="original">Originals</option>
+                  <option value="stem">Stems</option>
+                  <option value="mix">Mixes</option>
+                  <option value="preset">Presets</option>
+                </select>
+                <select
+                  value={assetSort}
+                  onChange={(e) => setAssetSort(e.target.value as AssetSortValue)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-2 py-2 text-xs text-gray-900 outline-none dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                >
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
+                  <option value="name_asc">A-Z</option>
+                  <option value="name_desc">Z-A</option>
+                  <option value="duration_desc">Longest</option>
+                  <option value="type">Type</option>
+                </select>
+              </div>
+              {assets.length > 0 ? (
+                <div className="space-y-2 max-h-[calc(100vh-320px)] overflow-y-auto">
                   {displayedAssets.map((asset) => (
                     <div
                       key={asset.id}
-                      className="rounded-[24px] border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-gray-800 dark:bg-gray-950/40"
+                      className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950/40 dark:hover:bg-gray-900"
                       onClick={() => {
                         if (asset.type === 'original') {
                           setSelectedAsset(asset);
                         }
                       }}
-                      >
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                        <div className="flex items-start gap-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedMixerAssetIds.includes(asset.id)}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              setSelectedMixerAssetIds((currentIds) =>
-                                currentIds.includes(asset.id)
-                                  ? currentIds.filter((id) => id !== asset.id)
-                                  : [...currentIds, asset.id]
-                              );
-                            }}
-                            className="mt-1 h-4 w-4 rounded accent-blue-600"
-                          />
-                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                            <span className="text-2xl">{asset.type === 'stem' ? '🎛️' : asset.type === 'mix' ? '🎚️' : '🎵'}</span>
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedMixerAssetIds.includes(asset.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setSelectedMixerAssetIds((currentIds) =>
+                            currentIds.includes(asset.id)
+                              ? currentIds.filter((id) => id !== asset.id)
+                              : [...currentIds, asset.id]
+                          );
+                        }}
+                        className="h-4 w-4 rounded accent-blue-600"
+                      />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        <span className="text-lg">{asset.type === 'stem' ? '🎛️' : asset.type === 'mix' ? '🎚️' : '🎵'}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {editingAssetId === asset.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              value={assetNameDraft}
+                              onChange={(e) => setAssetNameDraft(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex-1 rounded-lg border border-sky-200 bg-sky-50 px-2 py-1 text-sm text-gray-900 outline-none dark:border-sky-800 dark:bg-sky-950/20 dark:text-white"
+                              autoFocus
+                            />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handleRenameAsset(asset.id); }}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white"
+                            >
+                              <Save size={14} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); cancelRenamingAsset(); }}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-600"
+                            >
+                              <X size={14} />
+                            </button>
                           </div>
-                          <div className="min-w-0">
-                            {editingAssetId === asset.id ? (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <input
-                                  value={assetNameDraft}
-                                  onChange={(e) => setAssetNameDraft(e.target.value)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="min-w-[220px] rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-gray-900 outline-none dark:border-sky-800 dark:bg-sky-950/20 dark:text-white"
-                                />
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void handleRenameAsset(asset.id);
-                                  }}
-                                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                                  disabled={isSavingAssetName}
-                                  title="Save asset name"
-                                  aria-label="Save asset name"
-                                >
-                                  <Save size={16} />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    cancelRenamingAsset();
-                                  }}
-                                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-300 text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                                  title="Cancel rename"
-                                  aria-label="Cancel rename"
-                                >
-                                  <X size={16} />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                  {getAssetDisplayName(asset)}
-                                </h4>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    startRenamingAsset(asset);
-                                  }}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
-                                  title="Rename asset"
-                                  aria-label="Rename asset"
-                                >
-                                  <Pencil size={14} />
-                                </button>
-                              </div>
-                            )}
-                            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-                              <span className="rounded-full bg-gray-100 px-3 py-1 font-medium capitalize text-gray-700 dark:bg-gray-800 dark:text-gray-200">
-                                {getAssetKindLabel(asset)}
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <Clock3 size={14} />
-                                {formatTime(asset.duration || 0)}
-                              </span>
-                              <span>{formatAssetDate(asset.created_at)}</span>
-                            </div>
-                            <p className="mt-2 truncate text-sm text-gray-500 dark:text-gray-400">{asset.s3_key.split('/').pop()}</p>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                              {getAssetDisplayName(asset)}
+                            </span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); startRenamingAsset(asset); }}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <Pencil size={12} />
+                            </button>
                           </div>
+                        )}
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] capitalize dark:bg-gray-800">
+                            {getAssetKindLabel(asset)}
+                          </span>
+                          <span>{formatTime(asset.duration || 0)}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <audio
-                            controls
-                            preload="metadata"
-                            className="h-11 max-w-[260px]"
-                            onClick={(e) => e.stopPropagation()}
-                            src={api.getAssetDownloadUrl(asset.id)}
-                          />
-                          {detectedBpm[asset.id] ? (
-                            <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-sm font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                              <Timer size={14} />
-                              {detectedBpm[asset.id]}
-                            </span>
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleDetectBpm(asset.id);
-                              }}
-                              disabled={detectingBpmId === asset.id}
-                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-wait dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                              title="Detect BPM"
-                              aria-label="Detect BPM"
-                            >
-                              {detectingBpmId === asset.id ? (
-                                <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                              ) : (
-                                <Timer size={18} />
-                              )}
-                            </button>
-                          )}
-                          {detectedKey[asset.id] ? (
-                            <span className="flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-1 text-sm font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                              <Key size={14} />
-                              {detectedKey[asset.id]}
-                            </span>
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleDetectKey(asset.id);
-                              }}
-                              disabled={detectingKeyId === asset.id}
-                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-wait dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                              title="Detect Key"
-                              aria-label="Detect Key"
-                            >
-                              {detectingKeyId === asset.id ? (
-                                <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                              ) : (
-                                <Key size={18} />
-                              )}
-                            </button>
-                          )}
-                          {asset.type === 'original' ? (
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setSelectedAsset(asset); setActiveTab('separate'); }}
-                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-600 text-white transition hover:bg-purple-700"
-                              title="Separate stems"
-                              aria-label="Separate stems"
-                            >
-                              <Wand2 size={18} />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openAssetsInMixer([asset]);
-                              }}
-                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white transition hover:bg-blue-700"
-                              title="Add to mixer"
-                              aria-label="Add to mixer"
-                            >
-                              <Music4 size={18} />
-                            </button>
-                          )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {asset.type === 'original' && (
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleDeleteAsset(asset.id);
-                            }}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-red-200 text-red-600 transition hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isDeletingAssetId === asset.id || isBulkDeleting}
-                            title={isDeletingAssetId === asset.id ? 'Removing asset' : 'Remove asset'}
-                            aria-label={isDeletingAssetId === asset.id ? 'Removing asset' : 'Remove asset'}
+                            onClick={(e) => { e.stopPropagation(); handleSeparateAsset(asset); }}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition hover:bg-sky-700"
+                            title="Separate"
                           >
-                            <Trash2 size={18} />
+                            <Wand2 size={16} />
                           </button>
-                        </div>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); void handleDeleteAsset(asset.id); }}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 text-red-600 transition hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-                </>
               ) : (
-                <div className="rounded-[28px] border border-dashed border-gray-300 px-4 py-12 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                  Upload your first audio file to start building a polished asset library for this project.
+                <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                  No assets yet. Upload audio files or create new assets.
                 </div>
               )}
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-[20px] border border-white/70 bg-white/80 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-600 dark:text-sky-300">Ingest</p>
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">Upload Audio</h2>
+                  </div>
+                  <div className="rounded-xl bg-sky-50 p-2 text-sky-600 dark:bg-sky-950/40 dark:text-sky-200">
+                    <UploadCloud size={18} />
+                  </div>
+                </div>
+                <div 
+                  className="rounded-xl border-2 border-dashed border-sky-200 bg-sky-50/70 p-4 text-center transition hover:border-sky-400 dark:border-sky-900/60 dark:bg-sky-950/20 dark:hover:border-sky-500"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (fileInputRef.current) {
+                      const dataTransfer = new DataTransfer();
+                      Array.from(e.dataTransfer.files).forEach(file => dataTransfer.items.add(file));
+                      fileInputRef.current.files = dataTransfer.files;
+                      fileInputRef.current.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                  }}
+                >
+                  <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">Drag & drop audio files</p>
+                  <p className="mb-3 text-xs text-gray-500">WAV, MP3, FLAC</p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="audio/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                    className="rounded-full bg-sky-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-sky-700"
+                    disabled={isUploading}
+                  >
+                    {isUploading ? `Uploading... ${Math.round(uploadProgress)}%` : 'Choose Files'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-[20px] border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Create</p>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">Asset Composer</h3>
+                  </div>
+                  <div className="rounded-xl bg-white/80 p-2 text-emerald-600 dark:bg-gray-900/60 dark:text-emerald-300">
+                    <Wand2 size={18} />
+                  </div>
+                </div>
+                <p className="mb-3 text-xs text-gray-600 dark:text-gray-300">
+                  Create musical assets with scale-aware notes, presets, and preview.
+                </p>
+                <button
+                  onClick={() => router.push(`/projects/${projectId}/create-asset`)}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700"
+                >
+                  <Music4 size={16} />
+                  Create New Asset
+                </button>
+              </div>
             </div>
           </div>
         )}
