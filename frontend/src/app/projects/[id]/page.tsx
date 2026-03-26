@@ -1718,10 +1718,6 @@ export default function ProjectDetailPage() {
                               {detectedKey[asset.id]}
                             </span>
                           )}
-                          <span className="ml-auto flex items-center gap-1 text-[10px] text-gray-400">
-                            <Clock3 size={12} />
-                            {formatTime(asset.duration || 0)}
-                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
