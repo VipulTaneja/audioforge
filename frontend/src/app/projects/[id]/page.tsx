@@ -418,22 +418,28 @@ export default function ProjectDetailPage() {
 
   const getStereoLevel = useCallback((analyser: AnalyserNode): { l: number; r: number } => {
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(dataArray);
+    analyser.getByteTimeDomainData(dataArray);
     
-    const halfLength = Math.floor(dataArray.length / 2);
     let sumL = 0;
     let sumR = 0;
+    const step = 2;
     
-    for (let i = 0; i < halfLength; i++) {
-      sumL += dataArray[i];
-      sumR += dataArray[i + halfLength];
+    for (let i = 0; i < dataArray.length; i += step) {
+      const sample = Math.abs((dataArray[i] - 128) / 128);
+      if (i % 4 === 0) {
+        sumL += sample;
+      } else {
+        sumR += sample;
+      }
     }
     
-    const avgL = sumL / halfLength / 255;
-    const avgR = sumR / halfLength / 255;
+    const count = Math.ceil(dataArray.length / step);
+    const avgL = sumL / (count / 2);
+    const avgR = sumR / (count / 2);
     
-    const l = Math.min(1, avgL * 1.5 + (Math.random() * 0.05));
-    const r = Math.min(1, avgR * 1.5 + (Math.random() * 0.05));
+    const variation = 0.1;
+    const l = Math.min(1, avgL * 1.5 + (Math.random() * variation));
+    const r = Math.min(1, avgR * 1.5 + (Math.random() * variation));
     
     return { l, r };
   }, []);
