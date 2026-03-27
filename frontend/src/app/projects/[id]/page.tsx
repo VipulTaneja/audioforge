@@ -61,6 +61,12 @@ interface TimelineStem {
   eqLow: number;
   eqMid: number;
   eqHigh: number;
+  compressor: boolean;
+  compressorThreshold: number;
+  compressorRatio: number;
+  compressorAttack: number;
+  compressorRelease: number;
+  compressorMakeup: number;
 }
 
 type AssetFilterValue = 'all' | 'original' | 'stem' | 'mix' | 'preset';
@@ -205,6 +211,12 @@ function buildTimelineStemsFromAssets(stemAssets: Asset[]): TimelineStem[] {
       eqLow: 0,
       eqMid: 0,
       eqHigh: 0,
+      compressor: false,
+      compressorThreshold: -24,
+      compressorRatio: 4,
+      compressorAttack: 0.003,
+      compressorRelease: 0.25,
+      compressorMakeup: 0,
       ...config,
     };
   });
@@ -283,7 +295,7 @@ export default function ProjectDetailPage() {
   const [markerDraft, setMarkerDraft] = useState('');
   const [snapshots, setSnapshots] = useState<ProjectSnapshot[]>([]);
   const [showSnapshots, setShowSnapshots] = useState(false);
-  const [expandedEffects, setExpandedEffects] = useState<Record<string, 'reverb' | 'delay' | 'eq' | null>>({});
+  const [expandedEffects, setExpandedEffects] = useState<Record<string, 'reverb' | 'delay' | 'eq' | 'compressor' | null>>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   
@@ -296,10 +308,10 @@ export default function ProjectDetailPage() {
   const durationRef = useRef<number>(180);
   
   const audioContextRef = useRef<AudioContext | null>(null);
-  const oscillatorsRef = useRef<Map<string, { osc: OscillatorNode; gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode; eqLow?: BiquadFilterNode; eqMid?: BiquadFilterNode; eqHigh?: BiquadFilterNode }>>(new Map());
+  const oscillatorsRef = useRef<Map<string, { osc: OscillatorNode; gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode; eqLow?: BiquadFilterNode; eqMid?: BiquadFilterNode; eqHigh?: BiquadFilterNode; compressor?: DynamicsCompressorNode }>>(new Map());
   const audioSourceRef = useRef<Map<string, AudioBufferSourceNode>>(new Map());
   const audioBufferRef = useRef<Map<string, AudioBuffer>>(new Map());
-  const audioNodesRef = useRef<Map<string, { gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode; eqLow?: BiquadFilterNode; eqMid?: BiquadFilterNode; eqHigh?: BiquadFilterNode }>>(new Map());
+  const audioNodesRef = useRef<Map<string, { gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode; eqLow?: BiquadFilterNode; eqMid?: BiquadFilterNode; eqHigh?: BiquadFilterNode; compressor?: DynamicsCompressorNode }>>(new Map());
   const masterGainRef = useRef<GainNode | null>(null);
   const masterAnalyserRef = useRef<AnalyserNode | null>(null);
   const meterAnimationRef = useRef<number | null>(null);
@@ -806,6 +818,12 @@ export default function ProjectDetailPage() {
         eqLow: 0,
         eqMid: 0,
         eqHigh: 0,
+        compressor: false,
+        compressorThreshold: -24,
+        compressorRatio: 4,
+        compressorAttack: 0.003,
+        compressorRelease: 0.25,
+        compressorMakeup: 0,
         ...config,
       };
     });
@@ -1728,7 +1746,21 @@ export default function ProjectDetailPage() {
     }));
   };
 
-  const toggleEffectExpanded = (stemId: string, effect: 'reverb' | 'delay' | 'eq') => {
+  const handleCompressorToggle = (stemId: string, enabled: boolean) => {
+    setTimelineStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s;
+      return { ...s, compressor: enabled };
+    }));
+  };
+
+  const handleCompressorChange = (stemId: string, param: 'compressorThreshold' | 'compressorRatio' | 'compressorAttack' | 'compressorRelease' | 'compressorMakeup', value: number) => {
+    setTimelineStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s;
+      return { ...s, [param]: value };
+    }));
+  };
+
+  const toggleEffectExpanded = (stemId: string, effect: 'reverb' | 'delay' | 'eq' | 'compressor') => {
     setExpandedEffects(prev => ({
       ...prev,
       [stemId]: prev[stemId] === effect ? null : effect
@@ -3247,6 +3279,62 @@ export default function ProjectDetailPage() {
                             />
                           </div>
                         )}
+                        {/* Compressor - collapsible */}
+                        <button
+                          type="button"
+                          onClick={() => toggleEffectExpanded(stem.id, 'compressor')}
+                          className={`flex items-center gap-1 w-full text-left ${expandedEffects[stem.id] === 'compressor' ? 'text-rose-600 dark:text-rose-400' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={stem.compressor}
+                            onChange={(e) => handleCompressorToggle(stem.id, e.target.checked)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-3 h-3"
+                          />
+                          <span className="text-[9px] text-gray-400" title="Compressor: Dynamic range control">Comp</span>
+                          <span className={`text-[8px] ${expandedEffects[stem.id] === 'compressor' ? 'rotate-90' : ''} transition-transform`}>▶</span>
+                        </button>
+                        {expandedEffects[stem.id] === 'compressor' && (
+                          <div className="flex justify-around py-2 pl-2 border-l-2 border-rose-200 dark:border-rose-800">
+                            <div className="text-[8px] text-center">
+                              <div className="text-gray-400">Thresh</div>
+                              <input
+                                type="range"
+                                min={-60}
+                                max={0}
+                                value={stem.compressorThreshold}
+                                onChange={(e) => handleCompressorChange(stem.id, 'compressorThreshold', parseInt(e.target.value))}
+                                className="w-12 h-1 accent-rose-500"
+                              />
+                              <div className="text-gray-500">{stem.compressorThreshold}</div>
+                            </div>
+                            <div className="text-[8px] text-center">
+                              <div className="text-gray-400">Ratio</div>
+                              <input
+                                type="range"
+                                min={1}
+                                max={20}
+                                value={stem.compressorRatio}
+                                onChange={(e) => handleCompressorChange(stem.id, 'compressorRatio', parseInt(e.target.value))}
+                                className="w-12 h-1 accent-rose-500"
+                              />
+                              <div className="text-gray-500">{stem.compressorRatio}:1</div>
+                            </div>
+                            <div className="text-[8px] text-center">
+                              <div className="text-gray-400">Makeup</div>
+                              <input
+                                type="range"
+                                min={0}
+                                max={24}
+                                value={stem.compressorMakeup}
+                                onChange={(e) => handleCompressorChange(stem.id, 'compressorMakeup', parseInt(e.target.value))}
+                                className="w-12 h-1 accent-rose-500"
+                              />
+                              <div className="text-gray-500">+{stem.compressorMakeup}dB</div>
+                            </div>
+                          </div>
+                        )}
                         {/* Stereo Level meter - always show */}
                         <div className="flex items-center justify-center mt-1">
                           <StereoMeter
@@ -3256,7 +3344,7 @@ export default function ProjectDetailPage() {
                           />
                         </div>
                       </div>
-                   
+                    
                       {/* Waveform area - only waveform in timeline */}
                       <div 
                         className="flex-1 relative min-h-[60px] cursor-pointer"
