@@ -1,12 +1,65 @@
 # AudioForge - Agent Guidelines
 
+<!-- DO NOT REMOVE: This section is mandatory for all GitHub issue implementations -->
+
+## GitHub Issue Workflow (Mandatory)
+
+Follow this process for every GitHub issue:
+
+### Setup
+- Check current branch → Create/switch to `fix/issue-00-implementation`
+
+### Context Discovery
+- Search codebase for related references (grep/LSP)
+
+### Execution Plan
+- Write detailed step-by-step technical plan
+- Identify 2+ potential side effects/breaking changes with mitigation steps
+
+### Implementation
+- Apply changes systematically
+
+### Automated Validation
+- Run build command (`npm run build` or `make`)
+- Run tests (`npm test` or `pytest`)
+- Iterate until tests pass
+
+### If tests pass:
+1. Final linting check
+2. Comment on GitHub issue with summary
+3. Close the issue (`gh issue close <number>`)
+4. Commit the branch
+5. Merge to master
+
+---
+
+<!-- IMPORTANT: Any promises made to users must be documented in AGENTS.md and preserved. Do not remove such commitments when trimming this file. -->
+
+## Quick Reference
+
+Read all the below files and memorize them.
+
+| Topic | File |
+|-------|------|
+| Tech Stack | Below |
+| Build/Lint/Test Commands | Below |
+| Code Style | [docs/code-style.md](docs/code-style.md) |
+| Project Structure | [docs/project-structure.md](docs/project-structure.md) |
+| Common Patterns | [docs/common-patterns.md](docs/common-patterns.md) |
+| Testing | [docs/testing.md](docs/testing.md) |
+
+---
+
 ## Tech Stack
+
 - **Frontend**: Next.js 16 (React 19) + Tailwind CSS + TypeScript
 - **Backend**: FastAPI (Python 3.12)
 - **Database**: PostgreSQL (async with SQLAlchemy)
 - **Job Queue**: Celery + Redis
 - **Storage**: MinIO (S3-compatible)
 - **Audio Processing**: Demucs, RNNoise, Essentia, librosa
+
+---
 
 ## Build, Lint, and Test Commands
 
@@ -44,141 +97,3 @@ docker-compose up -d postgres redis minio keycloak
 docker-compose build && docker-compose up -d
 docker-compose down
 ```
-
-## Code Style Guidelines
-
-### Python (Backend)
-- **Imports**: Absolute, group: stdlib → third-party → local, sort alphabetically
-- **Formatting**: Max 100 chars/line, 4 spaces, use Black
-- **Types**: Type hints for all args/returns, Pydantic for schemas, SQLAlchemy for models
-- **Naming**: snake_case (vars/functions), PascalCase (classes), UPPER_SNAKE_CASE (constants)
-- **Error Handling**: HTTPException, try/except, log appropriately, never expose secrets
-- **Database**: Async SQLAlchemy + asyncpg, dependency injection (`db: AsyncSession = Depends(get_db)`), use `await db.flush()` after add, `await db.refresh()` before return, UUIDs for PKs
-- **Response Models**: Always use Pydantic schemas (`response_model`) for API endpoints
-- **Async**: Use `async def` for all route handlers and database operations
-
-### TypeScript/React (Frontend)
-- **Imports**: Absolute with `@/` prefix (e.g., `@/lib/api`), group: React/next → libs → components → types
-- **Formatting**: 2 spaces, single quotes, trailing commas, semicolons
-- **Types**: TypeScript interfaces, explicit props/state, avoid `any`
-- **Naming**: camelCase (vars/functions), PascalCase (components/types)
-- **Components**: Functional + hooks, `'use client'` for client-side
-- **State**: useState (local), useEffect (side effects), cleanup in useEffect
-- **Error Handling**: try/catch async ops, user-friendly messages
-
-## Project Structure
-```
-backend/
-├── app/
-│   ├── api/        # FastAPI routers
-│   ├── core/       # Config, database, security, storage
-│   ├── models/     # SQLAlchemy models
-│   ├── schemas/    # Pydantic schemas
-│   ├── services/   # Business logic
-│   └── workers/    # Celery tasks
-│       ├── separation.py  # Demucs audio separation
-│       ├── denoise.py     # Noise reduction
-│       └── instrument_id.py # Instrument identification
-├── alembic/        # Database migrations
-└── tests/          # Test files
-
-frontend/
-├── src/
-│   ├── app/        # Next.js App Router
-│   ├── components/ # React components
-│   ├── hooks/      # Custom hooks
-│   ├── lib/        # API client, utilities
-│   └── types/      # TypeScript types
-├── public/         # Static assets
-└── tailwind.config.ts
-```
-
-## Key Conventions
-- Backend routes under `/api/v1`
-- Jobs async via Celery, poll every 2 seconds
-- Assets in MinIO, use presigned URLs
-- Project detail: 3 tabs (Upload/Separate/Mixer)
-- Admin: `/admin/jobs` for job management
-- UUID primary keys, UTC timestamps, soft deletes
-
-## Environment Variables
-```
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/audioforge
-REDIS_URL=redis://localhost:6379/0
-CELERY_BROKER_URL=redis://localhost:6379/1
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-```
-
-## Common Patterns
-
-### Create Job (Backend)
-```python
-@router.post("/", response_model=JobResponse)
-async def create_job(job: JobCreate, db: AsyncSession = Depends(get_db)):
-    db_job = Job(project_id=job.project_id, type=job.type.value, params=job.params)
-    db.add(db_job)
-    await db.flush()
-    await db.refresh(db_job)
-    separate_audio.delay(str(db_job.id))
-    return db_job
-```
-
-### Upload Flow (Frontend)
-1. POST `/api/v1/assets/presign` → get presigned URL
-2. PUT file to S3/MinIO
-3. POST `/api/v1/assets/` → create asset record
-
-### Poll Job Status
-```typescript
-const pollInterval = setInterval(async () => {
-  const status = await api.getJobStatus(job.id);
-  if (status.status === 'succeeded') {
-    clearInterval(pollInterval);
-    // Handle result
-  }
-}, 2000);
-```
-
-## Important Reminders
-1. Update AGENTS.md when adding dependencies, features, or API endpoints
-2. Python packages → `backend/requirements.txt`, Node packages → `frontend/package.json`
-3. Frontend proxies `/api/v1/*` to backend on port 8000
-4. Run lint and typecheck before committing
-5. Use async/await for all database operations
-6. Never expose secrets in error messages or logs
-7. Use `GH_TOKEN` for GitHub access: `echo $GH_TOKEN | gh auth login --with-token`
-
-## VS Code Debugging
-Use `.vscode/launch.json` configurations:
-- **Python: FastAPI Backend** - Debug API server
-- **Python: Celery Worker** - Debug background workers
-- **Node: Frontend Dev** - Debug frontend
-
-## Audio OSS Stack
-- **Media I/O**: PyAV + FFmpeg CLI
-- **Simple edits**: PyDub
-- **Noise reduction**: noisereduce
-- **Stem separation**: Spleeter
-- **Effects**: Pedalboard
-- Use WAV/PCM internally, separate DSP/ML from core services
-
-## Testing Guidelines
-- **Backend**: pytest + pytest-asyncio, test files in `backend/tests/`, use `httpx.AsyncClient`, naming: `test_module_name.py`
-- **Frontend**: Tests alongside components (`filename.test.ts`), React Testing Library, mock API with MSW
-
-### Testing Dependencies
-```bash
-pip install pytest pytest-asyncio httpx
-```
-
-## Error Handling
-- **Backend**: Use FastAPI's `HTTPException`, custom handlers in `app/core/exceptions.py`, log with context, return user-friendly messages
-- **Frontend**: Wrap async in try/catch, toast notifications, log with context, handle loading/error/success states
-
-## Database Sessions
-- Get DB session via dependency injection: `db: AsyncSession = Depends(get_db)`
-- Always use `await db.flush()` after `db.add()` to get generated IDs
-- Use `await db.refresh(obj, attribute_names=['...'])` before returning
-- Use UUIDs for primary keys, UTC timestamps, soft deletes
