@@ -13,6 +13,7 @@ export type StemMode = 'four_stem' | 'two_stem_vocals';
 export interface SeparationParams {
   demucs_model?: DemucsModel;
   stem_mode?: StemMode;
+  separator?: string;
 }
 
 export interface AssetResult {

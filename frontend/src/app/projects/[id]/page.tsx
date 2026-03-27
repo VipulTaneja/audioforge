@@ -4,20 +4,18 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { api, Asset, DemucsModel, Job, Stem, StemMode, TimelineMarker, ProjectSnapshot } from '@/lib/api';
 import { formatBrowserDateTime } from '@/lib/datetime';
+import { getStatusTone } from '@/lib/ui';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   AudioWaveform,
   CheckSquare,
   ChevronDown,
-  Clock3,
-  Download,
   Flag,
   Gauge,
   Headphones,
   History,
   Key,
   Layers3,
-  ListFilter,
   Music4,
   Pencil,
   Play,
@@ -54,6 +52,9 @@ interface TimelineStem {
   muted: boolean;
   solo: boolean;
   reverb: number;
+  reverbWetDry: number;
+  reverbDecay: number;
+  reverbPreDelay: number;
   delay: number;
   delayFeedback: number;
 }
@@ -191,6 +192,9 @@ function buildTimelineStemsFromAssets(stemAssets: Asset[]): TimelineStem[] {
       muted: false,
       solo: false,
       reverb: 0,
+      reverbWetDry: 30,
+      reverbDecay: 50,
+      reverbPreDelay: 0,
       delay: 0,
       delayFeedback: 0,
       ...config,
@@ -225,7 +229,6 @@ export default function ProjectDetailPage() {
   const [timelineStems, setTimelineStems] = useState<TimelineStem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedMixerAssetIds, setSelectedMixerAssetIds] = useState<string[]>([]);
-  const [isDeletingAssetId, setIsDeletingAssetId] = useState<string | null>(null);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [playingAssetId, setPlayingAssetId] = useState<string | null>(null);
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
@@ -234,7 +237,6 @@ export default function ProjectDetailPage() {
   const [detectingBpmId, setDetectingBpmId] = useState<string | null>(null);
   const [detectedKey, setDetectedKey] = useState<Record<string, string | null>>({});
   const [detectingKeyId, setDetectingKeyId] = useState<string | null>(null);
-  const [isSavingAssetName, setIsSavingAssetName] = useState(false);
   const [assetFilter, setAssetFilter] = useState<AssetFilterValue>('all');
   const [assetSort, setAssetSort] = useState<AssetSortValue>('newest');
   const [assetSearch, setAssetSearch] = useState('');
@@ -272,8 +274,6 @@ export default function ProjectDetailPage() {
   const [markerDraft, setMarkerDraft] = useState('');
   const [snapshots, setSnapshots] = useState<ProjectSnapshot[]>([]);
   const [showSnapshots, setShowSnapshots] = useState(false);
-  const [snapshotName, setSnapshotName] = useState('');
-  const [snapshotDesc, setSnapshotDesc] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   
@@ -286,7 +286,7 @@ export default function ProjectDetailPage() {
   const durationRef = useRef<number>(180);
   
   const audioContextRef = useRef<AudioContext | null>(null);
-  const oscillatorsRef = useRef<Map<string, { osc: OscillatorNode; gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode }>>(new Map());
+  const oscillatorsRef = useRef<Map<string, { osc: OscillatorNode; gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode }>>(new Map());
   const audioSourceRef = useRef<Map<string, AudioBufferSourceNode>>(new Map());
   const audioBufferRef = useRef<Map<string, AudioBuffer>>(new Map());
   const audioNodesRef = useRef<Map<string, { gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode }>>(new Map());
@@ -737,6 +737,12 @@ export default function ProjectDetailPage() {
         pan: 0,
         muted: false,
         solo: false,
+        reverb: 0,
+        reverbWetDry: 30,
+        reverbDecay: 50,
+        reverbPreDelay: 0,
+        delay: 0,
+        delayFeedback: 0,
         ...config,
       };
     });
@@ -794,15 +800,12 @@ export default function ProjectDetailPage() {
   };
 
   const handleDeleteAsset = async (assetId: string) => {
-    setIsDeletingAssetId(assetId);
     try {
       await api.deleteAsset(assetId);
       const refreshedAssets = await api.getProjectAssets(projectId);
       hydrateProjectAssets(refreshedAssets);
     } catch (error) {
       console.error('Failed to delete asset:', error);
-    } finally {
-      setIsDeletingAssetId(null);
     }
   };
 
@@ -870,7 +873,6 @@ export default function ProjectDetailPage() {
   };
 
   const handleRenameAsset = async (assetId: string) => {
-    setIsSavingAssetName(true);
     try {
       const updatedAsset = await api.updateAsset(assetId, {
         display_name: assetNameDraft.trim(),
@@ -884,8 +886,6 @@ export default function ProjectDetailPage() {
       cancelRenamingAsset();
     } catch (error) {
       console.error('Failed to rename asset:', error);
-    } finally {
-      setIsSavingAssetName(false);
     }
   };
 
@@ -942,61 +942,6 @@ export default function ProjectDetailPage() {
   const cancelEditingMarker = () => {
     setEditingMarkerId(null);
     setMarkerDraft('');
-  };
-
-  const handleSaveSnapshot = async () => {
-    if (!snapshotName.trim()) return;
-    try {
-      const mixData = {
-        stems: timelineStems.map(s => ({
-          id: s.id,
-          name: s.name,
-          volume: s.volume,
-          pan: s.pan,
-          muted: s.muted,
-          solo: s.solo,
-          isSelected: s.isSelected,
-        })),
-        masterVolume,
-      };
-      const newSnapshot = await api.createSnapshot(projectId, {
-        name: snapshotName.trim(),
-        description: snapshotDesc.trim() || undefined,
-        data: mixData,
-      });
-      setSnapshots(prev => [newSnapshot, ...prev]);
-      setSnapshotName('');
-      setSnapshotDesc('');
-    } catch (error) {
-      console.error('Failed to save snapshot:', error);
-    }
-  };
-
-  const handleLoadSnapshot = (snapshot: ProjectSnapshot) => {
-    if (!snapshot.data) return;
-    const data = snapshot.data as { stems?: Array<{ id: string; volume: number; pan: number; muted: boolean; solo: boolean; isSelected: boolean }>; masterVolume?: number };
-    if (data.stems) {
-      setTimelineStems(prev => prev.map(stem => {
-        const saved = data.stems!.find(s => s.id === stem.id);
-        if (saved) {
-          return { ...stem, ...saved };
-        }
-        return stem;
-      }));
-    }
-    if (typeof data.masterVolume === 'number') {
-      setMasterVolume(data.masterVolume);
-    }
-    setShowSnapshots(false);
-  };
-
-  const handleDeleteSnapshot = async (snapshotId: string) => {
-    try {
-      await api.deleteSnapshot(projectId, snapshotId);
-      setSnapshots(prev => prev.filter(s => s.id !== snapshotId));
-    } catch (error) {
-      console.error('Failed to delete snapshot:', error);
-    }
   };
 
   const togglePlay = useCallback(async () => {
@@ -1087,7 +1032,9 @@ export default function ProjectDetailPage() {
             const source = ctx.createBufferSource();
             source.buffer = buffer;
             
-            const gainNode = ctx.createGain();
+            const dryGain = ctx.createGain();
+            const wetGain = ctx.createGain();
+            const preDelay = ctx.createDelay(1.0);
             const pannerNode = ctx.createStereoPanner();
             const analyserNode = ctx.createAnalyser();
             const convolver = ctx.createConvolver();
@@ -1095,54 +1042,62 @@ export default function ProjectDetailPage() {
             const delayFeedback = ctx.createGain();
             const reverbGain = ctx.createGain();
             
-            // Create impulse response for reverb
-            const impulseLength = ctx.sampleRate * 1.5;
+            const wetDryMix = stem.reverb > 0 ? stem.reverbWetDry / 100 : 0;
+            const decayTime = stem.reverbDecay / 100 * 2 + 0.5;
+            const preDelayTime = stem.reverbPreDelay / 100 * 0.1;
+            
+            dryGain.gain.value = (1 - wetDryMix) * (stem.volume / 100) * 0.3;
+            wetGain.gain.value = wetDryMix * (stem.volume / 100) * 0.3;
+            preDelay.delayTime.value = preDelayTime;
+            reverbGain.gain.value = stem.reverb > 0 ? stem.reverb / 100 : 1;
+            
+            const impulseLength = Math.round(ctx.sampleRate * decayTime);
             const impulse = ctx.createBuffer(2, impulseLength, ctx.sampleRate);
             for (let channel = 0; channel < 2; channel++) {
               const channelData = impulse.getChannelData(channel);
               for (let i = 0; i < impulseLength; i++) {
-                channelData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.5));
+                channelData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * decayTime / 3));
               }
             }
             convolver.buffer = impulse;
-            reverbGain.gain.value = stem.reverb > 0 ? stem.reverb / 100 : 1;
             
             delay.delayTime.value = stem.delay / 100 * 0.5;
             delayFeedback.gain.value = 0.3;
             delay.connect(delayFeedback);
             delayFeedback.connect(delay);
             
-            gainNode.gain.value = (stem.volume / 100) * 0.3;
             pannerNode.pan.value = stem.pan / 100;
             analyserNode.fftSize = 256;
             
-            // Route: use convolver only when reverb > 0
             if (stem.reverb > 0) {
-              source.connect(gainNode);
-              gainNode.connect(pannerNode);
-              pannerNode.connect(convolver);
+              source.connect(dryGain);
+              dryGain.connect(pannerNode);
+              pannerNode.connect(delay);
+              
+              source.connect(wetGain);
+              wetGain.connect(preDelay);
+              preDelay.connect(convolver);
               convolver.connect(reverbGain);
               reverbGain.connect(delay);
-              delay.connect(analyserNode);
             } else {
-              source.connect(gainNode);
-              gainNode.connect(pannerNode);
+              source.connect(dryGain);
+              dryGain.connect(pannerNode);
               pannerNode.connect(delay);
-              delay.connect(analyserNode);
             }
+            delay.connect(analyserNode);
             analyserNode.connect(masterGainRef.current ?? ctx.destination);
             
-            // Start from resume position (offset is in seconds)
             const offsetSeconds = Math.min(resumePosition, buffer.duration);
             source.start(0, offsetSeconds);
             
             audioSourceRef.current.set(stem.assetId, source);
-            audioNodesRef.current.set(stem.assetId, { gain: gainNode, panner: pannerNode, analyser: analyserNode, convolver, delay, delayFeedback, reverbGain });
+            audioNodesRef.current.set(stem.assetId, { gain: dryGain, panner: pannerNode, analyser: analyserNode, convolver, delay, delayFeedback, reverbGain });
           }
         } else {
-          // Oscillator fallback
           const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
+          const dryGain = ctx.createGain();
+          const wetGain = ctx.createGain();
+          const preDelay = ctx.createDelay(1.0);
           const panner = ctx.createStereoPanner();
           const analyser = ctx.createAnalyser();
           const convolver = ctx.createConvolver();
@@ -1150,17 +1105,24 @@ export default function ProjectDetailPage() {
           const delayFeedback = ctx.createGain();
           const reverbGain = ctx.createGain();
           
-          // Create impulse response for reverb
-          const impulseLength = ctx.sampleRate * 1.5;
+          const wetDryMix = stem.reverb > 0 ? stem.reverbWetDry / 100 : 0;
+          const decayTime = stem.reverbDecay / 100 * 2 + 0.5;
+          const preDelayTime = stem.reverbPreDelay / 100 * 0.1;
+          
+          dryGain.gain.value = (1 - wetDryMix) * (stem.volume / 100) * 0.3;
+          wetGain.gain.value = wetDryMix * (stem.volume / 100) * 0.3;
+          preDelay.delayTime.value = preDelayTime;
+          reverbGain.gain.value = stem.reverb > 0 ? stem.reverb / 100 : 1;
+          
+          const impulseLength = Math.round(ctx.sampleRate * decayTime);
           const impulse = ctx.createBuffer(2, impulseLength, ctx.sampleRate);
           for (let channel = 0; channel < 2; channel++) {
             const channelData = impulse.getChannelData(channel);
             for (let i = 0; i < impulseLength; i++) {
-              channelData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.5));
+              channelData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * decayTime / 3));
             }
           }
           convolver.buffer = impulse;
-          reverbGain.gain.value = stem.reverb > 0 ? stem.reverb / 100 : 1;
           
           delay.delayTime.value = stem.delay / 100 * 0.5;
           delayFeedback.gain.value = 0.3;
@@ -1169,27 +1131,29 @@ export default function ProjectDetailPage() {
           
           osc.type = stem.sourceType === 'drums' ? 'square' : stem.sourceType === 'bass' ? 'sawtooth' : 'sine';
           osc.frequency.value = stem.frequency || 440;
-          gain.gain.value = (stem.volume / 100) * 0.3;
           panner.pan.value = stem.pan / 100;
           analyser.fftSize = 256;
           
           if (stem.reverb > 0) {
-            osc.connect(gain);
-            gain.connect(panner);
-            panner.connect(convolver);
+            osc.connect(dryGain);
+            dryGain.connect(panner);
+            panner.connect(delay);
+            
+            osc.connect(wetGain);
+            wetGain.connect(preDelay);
+            preDelay.connect(convolver);
             convolver.connect(reverbGain);
             reverbGain.connect(delay);
-            delay.connect(analyser);
           } else {
-            osc.connect(gain);
-            gain.connect(panner);
+            osc.connect(dryGain);
+            dryGain.connect(panner);
             panner.connect(delay);
-            delay.connect(analyser);
           }
+          delay.connect(analyser);
           analyser.connect(masterGainRef.current ?? ctx.destination);
           osc.start(0);
           
-          oscillatorsRef.current.set(stem.id, { osc, gain, panner, analyser, convolver, delay, reverbGain });
+          oscillatorsRef.current.set(stem.id, { osc, gain: dryGain, panner, analyser, convolver, delay, reverbGain });
         }
       });
       
@@ -1527,19 +1491,38 @@ export default function ProjectDetailPage() {
     setTimelineStems(prev => prev.map(s => {
       if (s.id !== stemId) return s;
 
-      // Update oscillator nodes
       const nodes = oscillatorsRef.current.get(stemId);
       if (nodes?.reverbGain) {
         nodes.reverbGain.gain.value = reverb / 100;
       }
 
-      // Update real audio nodes
       const audioNodes = s.assetId ? audioNodesRef.current.get(s.assetId) : undefined;
       if (audioNodes?.reverbGain) {
         audioNodes.reverbGain.gain.value = reverb / 100;
       }
 
       return { ...s, reverb };
+    }));
+  };
+
+  const handleReverbWetDryChange = (stemId: string, reverbWetDry: number) => {
+    setTimelineStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s;
+      return { ...s, reverbWetDry };
+    }));
+  };
+
+  const handleReverbDecayChange = (stemId: string, reverbDecay: number) => {
+    setTimelineStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s;
+      return { ...s, reverbDecay };
+    }));
+  };
+
+  const handleReverbPreDelayChange = (stemId: string, reverbPreDelay: number) => {
+    setTimelineStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s;
+      return { ...s, reverbPreDelay };
     }));
   };
 
@@ -2972,6 +2955,42 @@ export default function ProjectDetailPage() {
                             className="flex-1 h-1 accent-purple-600 cursor-pointer"
                           />
                         </div>
+                        {/* Reverb Wet/Dry slider */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-gray-400" title="Reverb Wet/Dry: Mix between dry and wet signal">W</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={stem.reverbWetDry}
+                            onChange={(e) => handleReverbWetDryChange(stem.id, parseInt(e.target.value))}
+                            className="flex-1 h-1 accent-purple-400 cursor-pointer"
+                          />
+                        </div>
+                        {/* Reverb Decay slider */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-gray-400" title="Reverb Decay: How long the reverb lasts">Dcy</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={stem.reverbDecay}
+                            onChange={(e) => handleReverbDecayChange(stem.id, parseInt(e.target.value))}
+                            className="flex-1 h-1 accent-purple-400 cursor-pointer"
+                          />
+                        </div>
+                        {/* Reverb Pre-Delay slider */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-gray-400" title="Reverb Pre-Delay: Time before reverb starts">Ply</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={stem.reverbPreDelay}
+                            onChange={(e) => handleReverbPreDelayChange(stem.id, parseInt(e.target.value))}
+                            className="flex-1 h-1 accent-purple-400 cursor-pointer"
+                          />
+                        </div>
                         {/* Delay slider */}
                         <div className="flex items-center gap-1">
                           <span className="text-[9px] text-gray-400" title="Delay: Add echo effect (0-100%)">D</span>
@@ -3137,12 +3156,7 @@ export default function ProjectDetailPage() {
                           <p className="text-sm font-semibold text-slate-900 dark:text-white">{job.type}</p>
                           <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{job.id}</p>
                         </div>
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          job.status === 'succeeded' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' :
-                          job.status === 'failed' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' :
-                          job.status === 'running' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' :
-                          'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                        }`}>
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusTone(job.status)}`}>
                           {job.status}
                         </span>
                       </div>
