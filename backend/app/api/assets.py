@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError
 from app.core.database import get_db
 from app.core.storage import generate_presigned_upload_url, get_s3_client
 from app.core.config import get_settings
+from app.core.cache import get_cache_service, WAVEFORM_CACHE_TTL
 from app.models import Asset, Project, User
 from app.schemas import AssetCreate, AssetResponse, AssetUpdate, PresignRequest, PresignResponse
 
@@ -161,34 +162,40 @@ async def get_waveform(asset_id: UUID, db: AsyncSession = Depends(get_db), peaks
     """Get waveform peaks for visualization."""
     import asyncio
     import concurrent.futures
-    
+
+    cache_key = f"waveform:{asset_id}:{peaks}"
+    cache = await get_cache_service()
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     result = await db.execute(select(Asset).where(Asset.id == asset_id))
     asset = result.scalar_one_or_none()
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
-    
+
     def generate_waveform():
         settings = get_settings()
         s3 = get_s3_client()
-        
+
         try:
             file_obj = s3.get_object(
                 Bucket=settings.minio_bucket_assets,
                 Key=asset.s3_key
             )
-            
+
             import io
             audio_data = b''.join(chunk for chunk in file_obj['Body'].iter_chunks())
-            
+
             import soundfile as sf
             with io.BytesIO(audio_data) as buffer:
                 wav, sr = sf.read(buffer)
-                
+
                 if len(wav.shape) > 1:
                     wav = wav.mean(axis=1)
-                
+
                 wav = wav.astype(np.float64)
-                
+
                 samples_per_peak = max(1, len(wav) // peaks)
                 peaks_data = []
                 for i in range(peaks):
@@ -199,22 +206,24 @@ async def get_waveform(asset_id: UUID, db: AsyncSession = Depends(get_db), peaks
                         peaks_data.append(peak)
                     else:
                         peaks_data.append(0)
-                
+
                 return {"peaks": peaks_data, "sample_rate": sr, "duration": len(wav) / sr}
-                
+
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f"Waveform generation failed: {e}")
             raise
-    
+
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
-    
+
     with concurrent.futures.ThreadPoolExecutor() as pool:
         result = await loop.run_in_executor(pool, generate_waveform)
-    
+
+    await cache.set(cache_key, result, WAVEFORM_CACHE_TTL)
+
     return result
 
 

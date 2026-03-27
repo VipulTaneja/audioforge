@@ -7,6 +7,7 @@ from uuid import UUID
 import logging
 
 from app.core.database import get_db
+from app.core.cache import get_cache_service, JOB_STATUS_CACHE_TTL
 from app.models import Job, Project, Asset, JobStatus
 from app.schemas import JobCreate, JobResponse, JobUpdate
 from app.workers.celery_app import celery_app
@@ -124,15 +125,18 @@ async def get_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
 @router.get("/{job_id}/status")
 async def get_job_status(job_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get detailed job status including progress and result."""
+    cache_key = f"job_status:{job_id}"
+    cache = await get_cache_service()
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     result = await db.execute(select(Job).where(Job.id == job_id))
     job = result.scalar_one_or_none()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    
-    # Check Celery task status
-    celery_task_id = None
-    
-    return {
+
+    response = {
         "id": str(job.id),
         "type": job.type,
         "status": job.status,
@@ -143,6 +147,10 @@ async def get_job_status(job_id: UUID, db: AsyncSession = Depends(get_db)):
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "ended_at": job.ended_at.isoformat() if job.ended_at else None,
     }
+
+    await cache.set(cache_key, response, JOB_STATUS_CACHE_TTL)
+
+    return response
 
 
 @router.patch("/{job_id}", response_model=JobResponse)
@@ -167,6 +175,10 @@ async def update_job(job_id: UUID, payload: JobUpdate, db: AsyncSession = Depend
 
     await db.flush()
     await db.refresh(job)
+
+    cache = await get_cache_service()
+    await cache.delete(f"job_status:{job_id}")
+
     return job
 
 
