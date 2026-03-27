@@ -92,12 +92,12 @@ interface KnobProps {
   showValue?: boolean;
 }
 
-const colorClasses: Record<KnobColor, string> = {
-  blue: 'bg-blue-500',
-  purple: 'bg-purple-500',
-  amber: 'bg-amber-500',
-  emerald: 'bg-emerald-500',
-  rose: 'bg-rose-500',
+const colorClasses: Record<KnobColor, { bg: string; ring: string; indicator: string; glow: string }> = {
+  blue: { bg: 'bg-blue-500', ring: 'bg-blue-600', indicator: 'bg-white', glow: 'shadow-blue-500/50' },
+  purple: { bg: 'bg-purple-500', ring: 'bg-purple-600', indicator: 'bg-white', glow: 'shadow-purple-500/50' },
+  amber: { bg: 'bg-amber-500', ring: 'bg-amber-600', indicator: 'bg-white', glow: 'shadow-amber-500/50' },
+  emerald: { bg: 'bg-emerald-500', ring: 'bg-emerald-600', indicator: 'bg-white', glow: 'shadow-emerald-500/50' },
+  rose: { bg: 'bg-rose-500', ring: 'bg-rose-600', indicator: 'bg-white', glow: 'shadow-rose-500/50' },
 };
 
 export function Knob({
@@ -110,11 +110,13 @@ export function Knob({
   size = 'md',
   showValue = true,
 }: KnobProps) {
-  const sizeClasses = size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
-  const knobSize = size === 'sm' ? 24 : 30;
+  const outerSize = size === 'sm' ? 'w-9 h-9' : 'w-12 h-12';
+  const innerSize = size === 'sm' ? 'w-7 h-7' : 'w-9 h-9';
+  const knobSize = size === 'sm' ? 28 : 36;
   
   const normalizedValue = ((value - min) / (max - min)) * 270;
   const rotation = normalizedValue - 135;
+  const indicatorRotation = rotation;
   
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -123,11 +125,34 @@ export function Knob({
     onChange(newValue);
   };
 
+  const handleDragStart = (e: React.MouseEvent) => {
+    const startY = e.clientY;
+    const startValue = value;
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = startY - moveEvent.clientY;
+      const sensitivity = (max - min) / 150;
+      const newValue = Math.max(min, Math.min(max, startValue + deltaY * sensitivity));
+      onChange(Math.round(newValue));
+    };
+    
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const c = colorClasses[color];
+
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-0.5">
       <div
-        className={`relative rounded-full cursor-pointer transition-colors ${sizeClasses} bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600`}
+        className={`relative cursor-pointer select-none`}
         onWheel={handleWheel}
+        onMouseDown={handleDragStart}
         role="slider"
         aria-label={label}
         aria-valuemin={min}
@@ -135,59 +160,65 @@ export function Knob({
         aria-valuenow={value}
         tabIndex={0}
       >
-        <svg
-          width={knobSize}
-          height={knobSize}
-          viewBox="0 0 40 40"
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-        >
-          <circle
-            cx="20"
-            cy="20"
-            r="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="text-gray-300 dark:text-gray-600"
-            strokeDasharray={`${Math.PI * 16 * 0.75} ${Math.PI * 16}`}
-            strokeLinecap="round"
-            transform="rotate(135 20 20)"
-          />
-          <circle
-            cx="20"
-            cy="20"
-            r="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className={`${colorClasses[color]} opacity-80`}
-            strokeDasharray={`${Math.PI * 16 * (normalizedValue / 270)} ${Math.PI * 16}`}
-            strokeLinecap="round"
-            transform="rotate(135 20 20)"
-          />
-          <line
-            x1="20"
-            y1="20"
-            x2="20"
-            y2="8"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className={colorClasses[color]}
-            transform={`rotate(${rotation} 20 20)`}
-          />
-        </svg>
-        <div
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ${sizeClasses === 'w-8 h-8' ? 'w-5 h-5' : 'w-6 h-6'} ${colorClasses[color]}`}
-          style={{ transform: `translate(-50%, -50%) rotate(${rotation}deg)`, transformOrigin: 'center' }}
-        />
+        {/* Outer ring with 3D effect */}
+        <div className={`${outerSize} rounded-full bg-gradient-to-br from-gray-100 to-gray-300 dark:from-gray-600 dark:to-gray-800 shadow-lg`}>
+          {/* Inner ring */}
+          <div className={`absolute inset-[3px] ${innerSize} rounded-full bg-gradient-to-br from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-900`}>
+            {/* Knob body */}
+            <div className={`absolute inset-[2px] ${size === 'sm' ? 'w-[22px] h-[22px]' : 'w-[28px] h-[28px]'} left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-b from-gray-300 to-gray-500 dark:from-gray-600 dark:to-gray-800 shadow-inner`}>
+              {/* Value arc background */}
+              <svg
+                width={knobSize - 4}
+                height={knobSize - 4}
+                viewBox="0 0 40 40"
+                className="absolute top-0 left-0"
+              >
+                <circle
+                  cx="20"
+                  cy="20"
+                  r="16"
+                  fill="none"
+                  strokeWidth="3"
+                  className="text-gray-400/30 dark:text-gray-500/30"
+                  strokeDasharray={`${Math.PI * 16 * 0.75} ${Math.PI * 16}`}
+                  strokeLinecap="round"
+                  transform="rotate(135 20 20)"
+                />
+                <circle
+                  cx="20"
+                  cy="20"
+                  r="16"
+                  fill="none"
+                  strokeWidth="3"
+                  className={`${c.ring}`}
+                  strokeDasharray={`${Math.PI * 16 * (normalizedValue / 270)} ${Math.PI * 16}`}
+                  strokeLinecap="round"
+                  transform="rotate(135 20 20)"
+                  style={{ filter: `drop-shadow(0 0 3px ${c.glow})` }}
+                />
+              </svg>
+              
+              {/* Indicator dot */}
+              <div
+                className={`absolute w-1.5 h-1.5 rounded-full ${c.indicator}`}
+                style={{
+                  top: '15%',
+                  left: '50%',
+                  transform: `translateX(-50%) rotate(${indicatorRotation}deg)`,
+                  transformOrigin: 'center 85%',
+                  boxShadow: '0 0 4px rgba(255,255,255,0.8)'
+                }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
       {showValue && (
-        <span className="text-[9px] text-gray-500 dark:text-gray-400 font-medium">
+        <span className="text-[10px] text-gray-600 dark:text-gray-300 font-semibold tabular-nums">
           {value}
         </span>
       )}
-      <span className="text-[8px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+      <span className="text-[7px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-medium">
         {label}
       </span>
     </div>
