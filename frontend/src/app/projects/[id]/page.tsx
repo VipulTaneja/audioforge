@@ -317,6 +317,15 @@ export default function ProjectDetailPage() {
   const masterAnalyserRef = useRef<AnalyserNode | null>(null);
   const meterAnimationRef = useRef<number | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const workletSupportedRef = useRef<boolean | null>(null);
+  const masterMeterWorkletRef = useRef<AudioWorkletNode | null>(null);
+  const workletMeterDataRef = useRef<{
+    master: { peak: number; rms: number; stereo: { l: number; r: number }; spectrum: number[]; loudness: number; phase: number };
+    stems: Map<string, { peak: number; rms: number; stereo: { l: number; r: number } }>;
+  }>({
+    master: { peak: 0, rms: 0, stereo: { l: 0, r: 0 }, spectrum: [], loudness: -Infinity, phase: 1 },
+    stems: new Map()
+  });
 
   const handlePlayAsset = (asset: Asset) => {
     if (playingAssetId === asset.id) {
@@ -564,53 +573,81 @@ export default function ProjectDetailPage() {
 
     const updateMeters = () => {
       const nextTrackLevels: Record<string, { l: number; r: number }> = {};
+      const useWorklet = workletSupportedRef.current && masterMeterWorkletRef.current;
 
       timelineStems.forEach((stem) => {
-        const oscNodes = oscillatorsRef.current.get(stem.id);
-        const audioNodes = stem.assetId ? audioNodesRef.current.get(stem.assetId) : undefined;
-        const analyser = oscNodes?.analyser ?? audioNodes?.analyser;
-        
-        if (analyser) {
-          const dataArray = new Uint8Array(analyser.frequencyBinCount);
-          analyser.getByteTimeDomainData(dataArray);
-          
-          let peakL = 0;
-          let peakR = 0;
-          
-          for (let i = 0; i < dataArray.length; i++) {
-            const sample = Math.abs((dataArray[i] - 128) / 128);
-            if (i % 2 === 0) {
-              peakL = Math.max(peakL, sample);
-            } else {
-              peakR = Math.max(peakR, sample);
-            }
+        if (useWorklet) {
+          const stemData = workletMeterDataRef.current.stems.get(stem.id);
+          if (stemData) {
+            nextTrackLevels[stem.id] = stemData.stereo;
+          } else {
+            nextTrackLevels[stem.id] = { l: 0, r: 0 };
           }
-          
-          nextTrackLevels[stem.id] = { 
-            l: Math.min(1, peakL * 2), 
-            r: Math.min(1, peakR * 2) 
-          };
         } else {
-          nextTrackLevels[stem.id] = { l: 0, r: 0 };
+          const oscNodes = oscillatorsRef.current.get(stem.id);
+          const audioNodes = stem.assetId ? audioNodesRef.current.get(stem.assetId) : undefined;
+          const analyser = oscNodes?.analyser ?? audioNodes?.analyser;
+          
+          if (analyser) {
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteTimeDomainData(dataArray);
+            
+            let peakL = 0;
+            let peakR = 0;
+            
+            for (let i = 0; i < dataArray.length; i++) {
+              const sample = Math.abs((dataArray[i] - 128) / 128);
+              if (i % 2 === 0) {
+                peakL = Math.max(peakL, sample);
+              } else {
+                peakR = Math.max(peakR, sample);
+              }
+            }
+            
+            nextTrackLevels[stem.id] = { 
+              l: Math.min(1, peakL * 2), 
+              r: Math.min(1, peakR * 2) 
+            };
+          } else {
+            nextTrackLevels[stem.id] = { l: 0, r: 0 };
+          }
         }
       });
 
       setTrackLevels(nextTrackLevels);
-      const masterLevels = masterAnalyserRef.current ? getStereoLevel(masterAnalyserRef.current) : { l: 0, r: 0 };
-      setMasterLevelL(masterLevels.l);
-      setMasterLevelR(masterLevels.r);
-      setMasterRms(masterAnalyserRef.current ? getMeterRms(masterAnalyserRef.current) : 0);
-      setMasterPhase(masterAnalyserRef.current ? getPhaseCorrelation(masterAnalyserRef.current) : 0);
-      if (showSpectrum) {
-        setSpectrumData(masterAnalyserRef.current ? getSpectrumData(masterAnalyserRef.current) : []);
+
+      if (useWorklet) {
+        const workletData = workletMeterDataRef.current.master;
+        setMasterLevelL(workletData.stereo.l);
+        setMasterLevelR(workletData.stereo.r);
+        setMasterRms(workletData.rms);
+        setMasterPhase(workletData.phase);
+        if (showSpectrum) {
+          setSpectrumData(workletData.spectrum || []);
+        }
+        setLoudnessShortTerm(workletData.loudness);
+        setLoudnessHistory(prev => {
+          const newHistory = [...prev, workletData.loudness];
+          if (newHistory.length > 50) newHistory.shift();
+          return newHistory;
+        });
+      } else {
+        const masterLevels = masterAnalyserRef.current ? getStereoLevel(masterAnalyserRef.current) : { l: 0, r: 0 };
+        setMasterLevelL(masterLevels.l);
+        setMasterLevelR(masterLevels.r);
+        setMasterRms(masterAnalyserRef.current ? getMeterRms(masterAnalyserRef.current) : 0);
+        setMasterPhase(masterAnalyserRef.current ? getPhaseCorrelation(masterAnalyserRef.current) : 0);
+        if (showSpectrum) {
+          setSpectrumData(masterAnalyserRef.current ? getSpectrumData(masterAnalyserRef.current) : []);
+        }
+        const loudness = masterAnalyserRef.current ? getLoudness(masterAnalyserRef.current) : -Infinity;
+        setLoudnessShortTerm(loudness);
+        setLoudnessHistory(prev => {
+          const newHistory = [...prev, loudness];
+          if (newHistory.length > 50) newHistory.shift();
+          return newHistory;
+        });
       }
-      const loudness = masterAnalyserRef.current ? getLoudness(masterAnalyserRef.current) : -Infinity;
-      setLoudnessShortTerm(loudness);
-      setLoudnessHistory(prev => {
-        const newHistory = [...prev, loudness];
-        if (newHistory.length > 50) newHistory.shift();
-        return newHistory;
-      });
       meterAnimationRef.current = requestAnimationFrame(updateMeters);
     };
 
@@ -624,7 +661,7 @@ export default function ProjectDetailPage() {
     };
   }, [getLoudness, getMeterLevel, getMeterRms, getPhaseCorrelation, getSpectrumData, isPlaying, showSpectrum, timelineStems]);
 
-  const initAudioContext = useCallback(() => {
+  const initAudioContext = useCallback(async () => {
     if (!audioContextRef.current) {
       const AudioContextCtor = window.AudioContext || (window as Window & typeof globalThis & {
         webkitAudioContext?: typeof AudioContext;
@@ -633,6 +670,9 @@ export default function ProjectDetailPage() {
         throw new Error('Web Audio API is not supported in this browser');
       }
       audioContextRef.current = new AudioContextCtor();
+    }
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
     }
     if (!masterGainRef.current || !masterAnalyserRef.current) {
       const masterGain = audioContextRef.current.createGain();
@@ -644,8 +684,33 @@ export default function ProjectDetailPage() {
       masterGainRef.current = masterGain;
       masterAnalyserRef.current = masterAnalyser;
     }
-    if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume();
+    if (workletSupportedRef.current === null) {
+      workletSupportedRef.current = typeof AudioWorkletNode !== 'undefined';
+      if (workletSupportedRef.current) {
+        try {
+          await audioContextRef.current.audioWorklet.addModule('/meters.worklet.js');
+        } catch (e) {
+          console.warn('Failed to load audio worklet, falling back to AnalyserNode:', e);
+          workletSupportedRef.current = false;
+        }
+      }
+    }
+    if (workletSupportedRef.current && !masterMeterWorkletRef.current && audioContextRef.current) {
+      try {
+        const meterWorklet = new AudioWorkletNode(audioContextRef.current, 'meter-processor');
+        meterWorklet.port.onmessage = (event) => {
+          if (event.data.type === 'meter') {
+            workletMeterDataRef.current.master = event.data;
+          }
+        };
+        if (masterGainRef.current) {
+          masterGainRef.current.connect(meterWorklet);
+        }
+        masterMeterWorkletRef.current = meterWorklet;
+      } catch (e) {
+        console.warn('Failed to create meter worklet:', e);
+        workletSupportedRef.current = false;
+      }
     }
     return audioContextRef.current;
   }, [masterVolume]);
@@ -1027,7 +1092,7 @@ export default function ProjectDetailPage() {
   };
 
   const togglePlay = useCallback(async () => {
-    const ctx = initAudioContext();
+    const ctx = await initAudioContext();
     
     if (isPlaying) {
       if (playbackRef.current) clearInterval(playbackRef.current);
