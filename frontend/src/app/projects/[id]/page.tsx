@@ -56,6 +56,7 @@ interface TimelineStem {
   reverbDecay: number;
   reverbPreDelay: number;
   delay: number;
+  delayWetDry: number;
   delayFeedback: number;
 }
 
@@ -196,7 +197,8 @@ function buildTimelineStemsFromAssets(stemAssets: Asset[]): TimelineStem[] {
       reverbDecay: 50,
       reverbPreDelay: 0,
       delay: 0,
-      delayFeedback: 0,
+      delayWetDry: 30,
+      delayFeedback: 30,
       ...config,
     };
   });
@@ -742,7 +744,8 @@ export default function ProjectDetailPage() {
         reverbDecay: 50,
         reverbPreDelay: 0,
         delay: 0,
-        delayFeedback: 0,
+        delayWetDry: 30,
+        delayFeedback: 30,
         ...config,
       };
     });
@@ -1061,29 +1064,46 @@ export default function ProjectDetailPage() {
             }
             convolver.buffer = impulse;
             
+            const delayWetDryMix = stem.delay > 0 ? stem.delayWetDry / 100 : 0;
+            const dryDelayGain = ctx.createGain();
+            const wetDelayGain = ctx.createGain();
+            dryDelayGain.gain.value = 1 - delayWetDryMix;
+            wetDelayGain.gain.value = delayWetDryMix;
+            
             delay.delayTime.value = stem.delay / 100 * 0.5;
-            delayFeedback.gain.value = 0.3;
+            delayFeedback.gain.value = stem.delayFeedback / 100 * 0.7;
             delay.connect(delayFeedback);
             delayFeedback.connect(delay);
             
             pannerNode.pan.value = stem.pan / 100;
             analyserNode.fftSize = 256;
             
-            if (stem.reverb > 0) {
-              source.connect(dryGain);
-              dryGain.connect(pannerNode);
+            const hasReverb = stem.reverb > 0;
+            const hasDelay = stem.delay > 0;
+            
+            source.connect(dryGain);
+            dryGain.connect(pannerNode);
+            
+            if (hasDelay) {
+              pannerNode.connect(dryDelayGain);
+              dryDelayGain.connect(delay);
+            } else {
               pannerNode.connect(delay);
-              
+            }
+            
+            if (hasReverb) {
               source.connect(wetGain);
               wetGain.connect(preDelay);
               preDelay.connect(convolver);
               convolver.connect(reverbGain);
-              reverbGain.connect(delay);
-            } else {
-              source.connect(dryGain);
-              dryGain.connect(pannerNode);
-              pannerNode.connect(delay);
+              if (hasDelay) {
+                reverbGain.connect(wetDelayGain);
+                wetDelayGain.connect(delay);
+              } else {
+                reverbGain.connect(delay);
+              }
             }
+            
             delay.connect(analyserNode);
             analyserNode.connect(masterGainRef.current ?? ctx.destination);
             
@@ -1124,8 +1144,14 @@ export default function ProjectDetailPage() {
           }
           convolver.buffer = impulse;
           
+          const delayWetDryMix = stem.delay > 0 ? stem.delayWetDry / 100 : 0;
+          const dryDelayGain = ctx.createGain();
+          const wetDelayGain = ctx.createGain();
+          dryDelayGain.gain.value = 1 - delayWetDryMix;
+          wetDelayGain.gain.value = delayWetDryMix;
+          
           delay.delayTime.value = stem.delay / 100 * 0.5;
-          delayFeedback.gain.value = 0.3;
+          delayFeedback.gain.value = stem.delayFeedback / 100 * 0.7;
           delay.connect(delayFeedback);
           delayFeedback.connect(delay);
           
@@ -1134,21 +1160,32 @@ export default function ProjectDetailPage() {
           panner.pan.value = stem.pan / 100;
           analyser.fftSize = 256;
           
-          if (stem.reverb > 0) {
-            osc.connect(dryGain);
-            dryGain.connect(panner);
+          const hasReverb = stem.reverb > 0;
+          const hasDelay = stem.delay > 0;
+          
+          osc.connect(dryGain);
+          dryGain.connect(panner);
+          
+          if (hasDelay) {
+            panner.connect(dryDelayGain);
+            dryDelayGain.connect(delay);
+          } else {
             panner.connect(delay);
-            
+          }
+          
+          if (hasReverb) {
             osc.connect(wetGain);
             wetGain.connect(preDelay);
             preDelay.connect(convolver);
             convolver.connect(reverbGain);
-            reverbGain.connect(delay);
-          } else {
-            osc.connect(dryGain);
-            dryGain.connect(panner);
-            panner.connect(delay);
+            if (hasDelay) {
+              reverbGain.connect(wetDelayGain);
+              wetDelayGain.connect(delay);
+            } else {
+              reverbGain.connect(delay);
+            }
           }
+          
           delay.connect(analyser);
           analyser.connect(masterGainRef.current ?? ctx.destination);
           osc.start(0);
@@ -1530,10 +1567,9 @@ export default function ProjectDetailPage() {
     setTimelineStems(prev => prev.map(s => {
       if (s.id !== stemId) return s;
 
-      // Update delay node
       const nodes = oscillatorsRef.current.get(stemId);
       if (nodes && nodes.delay) {
-        nodes.delay.delayTime.value = delay / 100 * 0.5; // 0 to 0.5 seconds
+        nodes.delay.delayTime.value = delay / 100 * 0.5;
       }
 
       const audioNodes = s.assetId ? audioNodesRef.current.get(s.assetId) : undefined;
@@ -1542,6 +1578,31 @@ export default function ProjectDetailPage() {
       }
 
       return { ...s, delay };
+    }));
+  };
+
+  const handleDelayWetDryChange = (stemId: string, delayWetDry: number) => {
+    setTimelineStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s;
+      return { ...s, delayWetDry };
+    }));
+  };
+
+  const handleDelayFeedbackChange = (stemId: string, delayFeedback: number) => {
+    setTimelineStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s;
+
+      const nodes = oscillatorsRef.current.get(stemId);
+      if (nodes && nodes.delayFeedback) {
+        nodes.delayFeedback.gain.value = delayFeedback / 100 * 0.7;
+      }
+
+      const audioNodes = s.assetId ? audioNodesRef.current.get(s.assetId) : undefined;
+      if (audioNodes && audioNodes.delayFeedback) {
+        audioNodes.delayFeedback.gain.value = delayFeedback / 100 * 0.7;
+      }
+
+      return { ...s, delayFeedback };
     }));
   };
 
@@ -3001,6 +3062,30 @@ export default function ProjectDetailPage() {
                             value={stem.delay}
                             onChange={(e) => handleDelayChange(stem.id, parseInt(e.target.value))}
                             className="flex-1 h-1 accent-amber-600 cursor-pointer"
+                          />
+                        </div>
+                        {/* Delay Wet/Dry slider */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-gray-400" title="Delay Wet/Dry: Mix between dry and wet signal">W</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={stem.delayWetDry}
+                            onChange={(e) => handleDelayWetDryChange(stem.id, parseInt(e.target.value))}
+                            className="flex-1 h-1 accent-amber-400 cursor-pointer"
+                          />
+                        </div>
+                        {/* Delay Feedback slider */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-gray-400" title="Delay Feedback: How much delay repeats">Fdb</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={stem.delayFeedback}
+                            onChange={(e) => handleDelayFeedbackChange(stem.id, parseInt(e.target.value))}
+                            className="flex-1 h-1 accent-amber-400 cursor-pointer"
                           />
                         </div>
                         {/* Level meter */}
