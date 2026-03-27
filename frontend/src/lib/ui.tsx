@@ -327,8 +327,8 @@ export function StereoMeter({ levelL, levelR, height = 'md', showLabel = false }
     return 'bg-emerald-400';
   };
   
-  const widthL = Math.max(2, Math.min(100, levelL * 100));
-  const widthR = Math.max(2, Math.min(100, levelR * 100));
+  const widthL = Math.max(4, Math.min(100, levelL * 100));
+  const widthR = Math.max(4, Math.min(100, levelR * 100));
   
   return (
     <div className="flex flex-col items-center gap-0.5">

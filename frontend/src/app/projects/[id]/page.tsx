@@ -547,9 +547,33 @@ export default function ProjectDetailPage() {
       const nextTrackLevels: Record<string, { l: number; r: number }> = {};
 
       timelineStems.forEach((stem) => {
-        const analyser = oscillatorsRef.current.get(stem.id)?.analyser
-          ?? (stem.assetId ? audioNodesRef.current.get(stem.assetId)?.analyser : undefined);
-        nextTrackLevels[stem.id] = analyser ? getStereoLevel(analyser) : { l: 0, r: 0 };
+        const oscNodes = oscillatorsRef.current.get(stem.id);
+        const audioNodes = stem.assetId ? audioNodesRef.current.get(stem.assetId) : undefined;
+        const analyser = oscNodes?.analyser ?? audioNodes?.analyser;
+        
+        if (analyser) {
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          analyser.getByteTimeDomainData(dataArray);
+          
+          let peakL = 0;
+          let peakR = 0;
+          
+          for (let i = 0; i < dataArray.length; i++) {
+            const sample = Math.abs((dataArray[i] - 128) / 128);
+            if (i % 2 === 0) {
+              peakL = Math.max(peakL, sample);
+            } else {
+              peakR = Math.max(peakR, sample);
+            }
+          }
+          
+          nextTrackLevels[stem.id] = { 
+            l: Math.min(1, peakL * 2), 
+            r: Math.min(1, peakR * 2) 
+          };
+        } else {
+          nextTrackLevels[stem.id] = { l: 0, r: 0 };
+        }
       });
 
       setTrackLevels(nextTrackLevels);
