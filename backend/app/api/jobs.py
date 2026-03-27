@@ -171,9 +171,20 @@ async def update_job(job_id: UUID, payload: JobUpdate, db: AsyncSession = Depend
 
 
 @router.get("/project/{project_id}", response_model=list[JobResponse])
-async def list_project_jobs(project_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Job).where(Job.project_id == project_id).order_by(Job.created_at.desc())
-    )
+async def list_project_jobs(
+    project_id: UUID,
+    status: JobStatus | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(Job).where(Job.project_id == project_id)
+    
+    if status:
+        query = query.where(Job.status == status.value)
+    
+    query = query.order_by(Job.created_at.desc()).limit(limit).offset(offset)
+    
+    result = await db.execute(query)
     jobs = result.scalars().all()
     return jobs

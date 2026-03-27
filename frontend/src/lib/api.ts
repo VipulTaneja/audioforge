@@ -269,8 +269,13 @@ class ApiService {
     return this.request(`/api/v1/jobs/${jobId}/status`);
   }
 
-  async getProjectJobs(projectId: string): Promise<Job[]> {
-    return this.request<Job[]>(`/api/v1/jobs/project/${projectId}`);
+  async getProjectJobs(projectId: string, options?: { status?: Job['status']; limit?: number; offset?: number }): Promise<Job[]> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.request<Job[]>(`/api/v1/jobs/project/${projectId}${query ? `?${query}` : ''}`);
   }
 
   // Upload file using presigned URL

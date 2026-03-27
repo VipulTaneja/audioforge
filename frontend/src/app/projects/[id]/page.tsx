@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { api, Asset, DemucsModel, Stem, StemMode, TimelineMarker, ProjectSnapshot } from '@/lib/api';
+import { api, Asset, DemucsModel, Job, Stem, StemMode, TimelineMarker, ProjectSnapshot } from '@/lib/api';
 import { formatBrowserDateTime } from '@/lib/datetime';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
@@ -209,7 +209,10 @@ export default function ProjectDetailPage() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'denoise' | 'mix'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'denoise' | 'mix' | 'jobs'>('upload');
+  const [projectJobs, setProjectJobs] = useState<Job[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobStatusFilter, setJobStatusFilter] = useState<'all' | Job['status']>('all');
   const [processingProgress, setProcessingProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
@@ -1674,6 +1677,25 @@ export default function ProjectDetailPage() {
     }
   }, [demucsModel, stemMode]);
 
+  useEffect(() => {
+    if (activeTab !== 'jobs') return;
+    
+    const loadJobs = async () => {
+      setJobsLoading(true);
+      try {
+        const status = jobStatusFilter === 'all' ? undefined : jobStatusFilter;
+        const jobs = await api.getProjectJobs(projectId, { status });
+        setProjectJobs(jobs);
+      } catch (error) {
+        console.error('Failed to load project jobs:', error);
+      } finally {
+        setJobsLoading(false);
+      }
+    };
+    
+    void loadJobs();
+  }, [projectId, activeTab, jobStatusFilter]);
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,_#f8fbff_0%,_#edf4fb_55%,_#e9eef6_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.12),_transparent_24%),linear-gradient(180deg,_#101827_0%,_#111827_50%,_#0f172a_100%)]">
       {/* Header */}
@@ -1719,6 +1741,12 @@ export default function ProjectDetailPage() {
                 disabled={originalAssets.length === 0}
               >
                 Denoise
+              </button>
+              <button 
+                onClick={() => setActiveTab('jobs')}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'jobs' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'}`}
+              >
+                Jobs
               </button>
               <button 
                 onClick={() => isMixed && setActiveTab('mix')}
@@ -3060,6 +3088,98 @@ export default function ProjectDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Jobs Tab */}
+        {activeTab === 'jobs' && (
+          <div className="max-w-full">
+            <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">Project Jobs</h2>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Track all audio processing jobs for this project
+                  </p>
+                </div>
+                <select
+                  value={jobStatusFilter}
+                  onChange={(e) => setJobStatusFilter(e.target.value as 'all' | Job['status'])}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm outline-none transition focus:border-sky-400 focus:bg-white dark:border-slate-700 dark:bg-slate-950 dark:focus:border-sky-500"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="running">Running</option>
+                  <option value="succeeded">Succeeded</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+
+              {jobsLoading ? (
+                <div className="mt-8 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                  <svg className="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Loading jobs...
+                </div>
+              ) : projectJobs.length === 0 ? (
+                <div className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                  No jobs found for this project.
+                </div>
+              ) : (
+                <div className="mt-6 space-y-3">
+                  {projectJobs.map((job) => (
+                    <div
+                      key={job.id}
+                      className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">{job.type}</p>
+                          <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{job.id}</p>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          job.status === 'succeeded' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' :
+                          job.status === 'failed' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' :
+                          job.status === 'running' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' :
+                          'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                        }`}>
+                          {job.status}
+                        </span>
+                      </div>
+                      <div className="mt-4">
+                        <div className="mb-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                          <span>Progress</span>
+                          <span>{job.progress}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
+                          <div
+                            className={`h-full rounded-full ${
+                              job.status === 'failed'
+                                ? 'bg-rose-500'
+                                : job.status === 'succeeded'
+                                  ? 'bg-emerald-500'
+                                  : 'bg-sky-500'
+                            }`}
+                            style={{ width: `${Math.min(Math.max(job.progress, 4), 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <span>Created: {formatBrowserDateTime(job.created_at)}</span>
+                        {job.ended_at && <span>Finished: {formatBrowserDateTime(job.ended_at)}</span>}
+                      </div>
+                      {job.error && (
+                        <div className="mt-3 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 dark:bg-rose-950/20 dark:text-rose-300">
+                          {job.error}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
