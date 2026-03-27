@@ -10,10 +10,10 @@ These are mostly UI additions or use existing libraries.
 
 | Feature | Complexity | Status | Notes |
 |---------|------------|--------|-------|
-| **BPM Detection** | 2/10 | ✅ DONE | Backend: `/api/v1/assets/{id}/bpm`, Frontend: MusicNote icon button |
-| **Key Detection** | 2/10 | ✅ DONE | Backend: `/api/v1/assets/{id}/key`, Frontend: Music icon button |
-| **Peak/RMS Meters** | 2/10 | ✅ DONE | Master meter shows both peak and RMS levels |
-| **Phase Meter** | 3/10 | ✅ DONE | Shows stereo phase correlation (+100 to -100) |
+| **BPM Detection** | 2/10 | ✅ DONE (2026-03-27) | Backend: `/api/v1/assets/{id}/bpm`, Frontend: MusicNote icon button |
+| **Key Detection** | 2/10 | ✅ DONE (2026-03-27) | Backend: `/api/v1/assets/{id}/key`, Frontend: Music icon button |
+| **Peak/RMS Meters** | 2/10 | ✅ DONE (2026-03-27) | Master meter shows both peak and RMS levels |
+| **Phase Meter** | 3/10 | ✅ DONE (2026-03-27) | Shows stereo phase correlation (+100 to -100) |
 | **Lo-fi / Bitcrusher** | 3/10 | Skip | Requires complex audio processing pipeline |
 
 ---
@@ -28,13 +28,13 @@ These require some audio processing but are well-documented.
 | **Delay / Echo** | 3/10 | Pending | Requires audio pipeline changes |
 | **Chorus & Flanger** | 4/10 | Pending | LFO-modulated delay |
 | **Multiple Export Formats** | 4/10 | Pending | Use ffmpeg or Python audio libraries |
-| **Mixdown** | 3/10 | ✅ DONE | Basic export of selected stem |
-| **Stem Export** | 3/10 | ✅ DONE | Download button in mixer |
+| **Mixdown** | 3/10 | ✅ DONE (2026-03-27) | Basic export of selected stem |
+| **Stem Export** | 3/10 | ✅ DONE (2026-03-27) | Download button in mixer |
 | **Pitch Shifting** | 4/10 | Pending | Phase vocoder or PSOLA algorithm |
 | **Time Stretching** | 4/10 | Pending | Phase vocoder or WSOLA |
 | **Compressor** | 4/10 | Pending | Requires audio pipeline changes |
 | **EQ (Equalizer)** | 4/10 | Pending | Requires audio pipeline changes |
-| **Loudness Meter (LUFS)** | 4/10 | ✅ DONE | Per ITU-R BS.1770 standard |
+| **Loudness Meter (LUFS)** | 4/10 | ✅ DONE (2026-03-27) | Per ITU-R BS.1770 standard |
 
 ---
 
@@ -49,12 +49,12 @@ These require more complex algorithms or integration work.
 | **De-clipping** | 6/10 | Interpolation + spectral repair |
 | **Voice Enhancement** | 5/10 | Combine noise reduction + EQ + compression |
 | **Vocal Doubler** | 5/10 | Time-stretch + pitch variation + delay |
-| **Spectral Analyzer** | 5/10 | ✅ DONE | FFT visualization, real-time updates |
+| **Spectral Analyzer** | 5/10 | ✅ DONE (2026-03-27) | FFT visualization, real-time updates |
 | **Vocal Harmonizer** | 6/10 | Pending | Pitch shifting + reverb + delay |
 | **AI Auto-Mix** | 7/10 | Pending | Train model on professional mixes |
 | **Stem Enhancement** | 6/10 | Pending | Upsampling + refinement models |
-| **Comments & Markers** | 5/10 | ✅ DONE | Database + UI timeline markers |
-| **Version History** | 5/10 | ✅ DONE | Snapshot assets/settings on save |
+| **Comments & Markers** | 5/10 | ✅ DONE (2026-03-27) | Database + UI timeline markers |
+| **Version History** | 5/10 | ✅ DONE (2026-03-27) | Snapshot assets/settings on save |
 
 ---
 
@@ -93,18 +93,18 @@ These require significant research, training, or complex systems.
 Based on complexity vs. user value:
 
 ### Phase 1: Quick Value (Do First)
-1. ✅ **BPM Detection** (2/10) - DONE
-2. ✅ **Key Detection** (2/10) - DONE
-3. ✅ **Peak/RMS Meters** (2/10) - DONE
-4. ✅ **Phase Meter** (3/10) - DONE
+1. ✅ **BPM Detection** (2/10) - DONE (2026-03-27)
+2. ✅ **Key Detection** (2/10) - DONE (2026-03-27)
+3. ✅ **Peak/RMS Meters** (2/10) - DONE (2026-03-27)
+4. ✅ **Phase Meter** (3/10) - DONE (2026-03-27)
 5. **Mixdown** (3/10) - Essential export feature
 6. **Stem Export** (3/10) - Already have download
 7. **Reverb** (3/10) - Popular effect
 8. **Delay/Echo** (3/10) - Popular effect
 
 ### Phase 2: Enhance Existing
-9. ✅ **Mixdown** (3/10) - Export selected stems (basic implementation)
-10. ✅ **Stem Export** (3/10) - Download individual assets
+9. ✅ **Mixdown** (3/10) - DONE (2026-03-27)
+10. ✅ **Stem Export** (3/10) - DONE (2026-03-27)
 11. **Reverb** (3/10) - Requires audio pipeline changes
 12. **Delay/Echo** (3/10) - Requires audio pipeline changes
 13. **Compressor** (4/10) - Requires audio pipeline changes

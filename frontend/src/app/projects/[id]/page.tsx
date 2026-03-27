@@ -1682,11 +1682,11 @@ export default function ProjectDetailPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-4">
               <button 
-                onClick={() => setActiveTab('upload')}
+                onClick={() => router.push('/projects')}
                 className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-gray-600 transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:text-white"
               >
                 <span>←</span>
-                <span className="text-sm">{activeTab === 'upload' ? 'Projects' : 'Overview'}</span>
+                <span className="text-sm">Projects</span>
               </button>
               <div className="flex items-center gap-3">
                 <button
@@ -1789,68 +1789,6 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
             </div>
-
-            {/* Quick Actions */}
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <button
-                onClick={() => {
-                  const selected = originalAssets.find(a => selectedMixerAssetIds.includes(a.id));
-                  if (selected) {
-                    setSelectedAsset(selected);
-                    setActiveTab('separate');
-                  } else if (originalAssets.length === 1) {
-                    setSelectedAsset(originalAssets[0]);
-                    setActiveTab('separate');
-                  }
-                }}
-                disabled={originalAssets.length === 0 || (selectedMixerAssetIds.filter(id => originalAssets.some(a => a.id === id)).length !== 1 && originalAssets.length > 1)}
-                className="group relative overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/80 p-4 text-left transition hover:bg-violet-100 dark:border-violet-900/40 dark:bg-violet-950/30 dark:hover:bg-violet-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-white p-2 text-violet-600 shadow-sm transition group-hover:scale-110 dark:bg-violet-900/60 dark:text-violet-200">
-                    <Wand2 size={20} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-violet-700 dark:text-violet-200">Separate</p>
-                    <p className="text-xs text-violet-600 dark:text-violet-300">Split audio into stems</p>
-                  </div>
-                </div>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-10 group-hover:opacity-20">
-                  <Wand2 size={48} />
-                </div>
-              </button>
-              
-              <button
-                onClick={() => {
-                  const selected = originalAssets.find(a => selectedMixerAssetIds.includes(a.id));
-                  if (selected) {
-                    setSelectedAsset(selected);
-                    setActiveTab('denoise');
-                  } else if (originalAssets.length === 1) {
-                    setSelectedAsset(originalAssets[0]);
-                    setActiveTab('denoise');
-                  }
-                }}
-                disabled={originalAssets.length === 0 || (selectedMixerAssetIds.filter(id => originalAssets.some(a => a.id === id)).length !== 1 && originalAssets.length > 1)}
-                className="group relative overflow-hidden rounded-2xl border border-cyan-100 bg-cyan-50/80 p-4 text-left transition hover:bg-cyan-100 dark:border-cyan-900/40 dark:bg-cyan-950/30 dark:hover:bg-cyan-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-white p-2 text-cyan-600 shadow-sm transition group-hover:scale-110 dark:bg-cyan-900/60 dark:text-cyan-200">
-                    <Waves size={20} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-cyan-700 dark:text-cyan-200">Denoise</p>
-                    <p className="text-xs text-cyan-600 dark:text-cyan-300">Reduce background noise</p>
-                  </div>
-                </div>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-10 group-hover:opacity-20">
-                  <Waves size={48} />
-                </div>
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Select one asset in the list to activate Separate or Denoise
-            </p>
           </div>
         </section>
         {/* Upload Tab */}

@@ -223,6 +223,26 @@ class ApiService {
     });
   }
 
+  async createDenoiseJob(
+    projectId: string,
+    assetIds: string[],
+    params: {
+      output_mode?: 'new' | 'overwrite';
+      stationary?: boolean;
+      noise_threshold?: number;
+    } = {}
+  ): Promise<Job> {
+    return this.request<Job>('/api/v1/jobs/', {
+      method: 'POST',
+      body: JSON.stringify({
+        project_id: projectId,
+        type: 'denoise',
+        asset_ids: assetIds,
+        params,
+      }),
+    });
+  }
+
   async getJob(jobId: string): Promise<Job> {
     return this.request<Job>(`/api/v1/jobs/${jobId}`);
   }

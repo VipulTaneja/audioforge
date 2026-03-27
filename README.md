@@ -409,3 +409,21 @@ If Demucs fails to load, the worker will fall back to mock separation (creates p
 ## License
 
 MIT
+
+## Tailing Logs
+
+To tail logs from all services running in the background:
+
+```bash
+# Docker containers (postgres, redis, minio, keycloak)
+docker-compose logs -f
+
+# API server logs
+tail -f /tmp/audioforge_api.log
+
+# Celery worker logs
+tail -f /tmp/audioforge_celery.log
+
+# Frontend logs
+tail -f /tmp/audioforge_frontend.log
+```

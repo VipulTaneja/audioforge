@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { FolderPlus, Layers3, Search, ShieldAlert, Trash2 } from 'lucide-react';
 import { api, Project } from '@/lib/api';
 import { formatBrowserDateTime } from '@/lib/datetime';
@@ -185,7 +184,7 @@ export default function ProjectsPage() {
           ) : (
             <div className="grid max-h-[calc(100vh-255px)] gap-4 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
               {filteredProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
+                <ProjectCard key={project.id} project={project} onDelete={() => setProjects((prev) => prev.filter((p) => p.id !== project.id))} />
               ))}
             </div>
           )}
@@ -242,8 +241,7 @@ function MetricCard({ label, value, icon }: { label: string; value: string; icon
   );
 }
 
-function ProjectCard({ project }: { project: LocalProject }) {
-  const router = useRouter();
+function ProjectCard({ project, onDelete }: { project: LocalProject; onDelete: () => void }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -255,7 +253,7 @@ function ProjectCard({ project }: { project: LocalProject }) {
     try {
       await api.deleteProject(project.id);
       setShowConfirm(false);
-      router.push('/projects');
+      onDelete();
     } catch (error) {
       console.error('Failed to delete project:', error);
       alert(error instanceof Error ? error.message : 'Failed to delete project');
