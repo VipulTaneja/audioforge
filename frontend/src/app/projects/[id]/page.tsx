@@ -58,6 +58,9 @@ interface TimelineStem {
   delay: number;
   delayWetDry: number;
   delayFeedback: number;
+  eqLow: number;
+  eqMid: number;
+  eqHigh: number;
 }
 
 type AssetFilterValue = 'all' | 'original' | 'stem' | 'mix' | 'preset';
@@ -199,6 +202,9 @@ function buildTimelineStemsFromAssets(stemAssets: Asset[]): TimelineStem[] {
       delay: 0,
       delayWetDry: 30,
       delayFeedback: 30,
+      eqLow: 0,
+      eqMid: 0,
+      eqHigh: 0,
       ...config,
     };
   });
@@ -277,7 +283,7 @@ export default function ProjectDetailPage() {
   const [markerDraft, setMarkerDraft] = useState('');
   const [snapshots, setSnapshots] = useState<ProjectSnapshot[]>([]);
   const [showSnapshots, setShowSnapshots] = useState(false);
-  const [expandedEffects, setExpandedEffects] = useState<Record<string, 'reverb' | 'delay' | null>>({});
+  const [expandedEffects, setExpandedEffects] = useState<Record<string, 'reverb' | 'delay' | 'eq' | null>>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   
@@ -290,10 +296,10 @@ export default function ProjectDetailPage() {
   const durationRef = useRef<number>(180);
   
   const audioContextRef = useRef<AudioContext | null>(null);
-  const oscillatorsRef = useRef<Map<string, { osc: OscillatorNode; gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode }>>(new Map());
+  const oscillatorsRef = useRef<Map<string, { osc: OscillatorNode; gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode; eqLow?: BiquadFilterNode; eqMid?: BiquadFilterNode; eqHigh?: BiquadFilterNode }>>(new Map());
   const audioSourceRef = useRef<Map<string, AudioBufferSourceNode>>(new Map());
   const audioBufferRef = useRef<Map<string, AudioBuffer>>(new Map());
-  const audioNodesRef = useRef<Map<string, { gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode }>>(new Map());
+  const audioNodesRef = useRef<Map<string, { gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode; eqLow?: BiquadFilterNode; eqMid?: BiquadFilterNode; eqHigh?: BiquadFilterNode }>>(new Map());
   const masterGainRef = useRef<GainNode | null>(null);
   const masterAnalyserRef = useRef<AnalyserNode | null>(null);
   const meterAnimationRef = useRef<number | null>(null);
@@ -797,6 +803,9 @@ export default function ProjectDetailPage() {
         delay: 0,
         delayWetDry: 30,
         delayFeedback: 30,
+        eqLow: 0,
+        eqMid: 0,
+        eqHigh: 0,
         ...config,
       };
     });
@@ -1127,13 +1136,32 @@ export default function ProjectDetailPage() {
             delay.connect(delayFeedback);
             delayFeedback.connect(delay);
             
+            const eqLow = ctx.createBiquadFilter();
+            eqLow.type = 'lowshelf';
+            eqLow.frequency.value = 320;
+            eqLow.gain.value = stem.eqLow;
+            
+            const eqMid = ctx.createBiquadFilter();
+            eqMid.type = 'peaking';
+            eqMid.frequency.value = 1000;
+            eqMid.Q.value = 0.5;
+            eqMid.gain.value = stem.eqMid;
+            
+            const eqHigh = ctx.createBiquadFilter();
+            eqHigh.type = 'highshelf';
+            eqHigh.frequency.value = 3200;
+            eqHigh.gain.value = stem.eqHigh;
+            
             pannerNode.pan.value = stem.pan / 100;
             analyserNode.fftSize = 256;
             
             const hasReverb = stem.reverb > 0;
             const hasDelay = stem.delay > 0;
             
-            source.connect(dryGain);
+            source.connect(eqLow);
+            eqLow.connect(eqMid);
+            eqMid.connect(eqHigh);
+            eqHigh.connect(dryGain);
             dryGain.connect(pannerNode);
             
             if (hasDelay) {
@@ -1163,7 +1191,7 @@ export default function ProjectDetailPage() {
             source.start(0, offsetSeconds);
             
             audioSourceRef.current.set(stem.assetId, source);
-            audioNodesRef.current.set(stem.assetId, { gain: dryGain, panner: pannerNode, analyser: analyserNode, convolver, delay, delayFeedback, reverbGain });
+            audioNodesRef.current.set(stem.assetId, { gain: dryGain, panner: pannerNode, analyser: analyserNode, convolver, delay, delayFeedback, reverbGain, eqLow, eqMid, eqHigh });
           }
         } else {
           const osc = ctx.createOscillator();
@@ -1212,10 +1240,29 @@ export default function ProjectDetailPage() {
           panner.pan.value = stem.pan / 100;
           analyser.fftSize = 256;
           
+          const eqLow = ctx.createBiquadFilter();
+          eqLow.type = 'lowshelf';
+          eqLow.frequency.value = 320;
+          eqLow.gain.value = stem.eqLow;
+          
+          const eqMid = ctx.createBiquadFilter();
+          eqMid.type = 'peaking';
+          eqMid.frequency.value = 1000;
+          eqMid.Q.value = 0.5;
+          eqMid.gain.value = stem.eqMid;
+          
+          const eqHigh = ctx.createBiquadFilter();
+          eqHigh.type = 'highshelf';
+          eqHigh.frequency.value = 3200;
+          eqHigh.gain.value = stem.eqHigh;
+          
           const hasReverb = stem.reverb > 0;
           const hasDelay = stem.delay > 0;
           
-          osc.connect(dryGain);
+          osc.connect(eqLow);
+          eqLow.connect(eqMid);
+          eqMid.connect(eqHigh);
+          eqHigh.connect(dryGain);
           dryGain.connect(panner);
           
           if (hasDelay) {
@@ -1242,7 +1289,7 @@ export default function ProjectDetailPage() {
           analyser.connect(masterGainRef.current ?? ctx.destination);
           osc.start(0);
           
-          oscillatorsRef.current.set(stem.id, { osc, gain: dryGain, panner, analyser, convolver, delay, reverbGain });
+          oscillatorsRef.current.set(stem.id, { osc, gain: dryGain, panner, analyser, convolver, delay, reverbGain, eqLow, eqMid, eqHigh });
         }
       });
       
@@ -1659,7 +1706,29 @@ export default function ProjectDetailPage() {
     }));
   };
 
-  const toggleEffectExpanded = (stemId: string, effect: 'reverb' | 'delay') => {
+  const handleEqChange = (stemId: string, band: 'eqLow' | 'eqMid' | 'eqHigh', value: number) => {
+    setTimelineStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s;
+
+      const nodes = oscillatorsRef.current.get(stemId);
+      if (nodes) {
+        if (band === 'eqLow' && nodes.eqLow) nodes.eqLow.gain.value = value;
+        if (band === 'eqMid' && nodes.eqMid) nodes.eqMid.gain.value = value;
+        if (band === 'eqHigh' && nodes.eqHigh) nodes.eqHigh.gain.value = value;
+      }
+
+      const audioNodes = s.assetId ? audioNodesRef.current.get(s.assetId) : undefined;
+      if (audioNodes) {
+        if (band === 'eqLow' && audioNodes.eqLow) audioNodes.eqLow.gain.value = value;
+        if (band === 'eqMid' && audioNodes.eqMid) audioNodes.eqMid.gain.value = value;
+        if (band === 'eqHigh' && audioNodes.eqHigh) audioNodes.eqHigh.gain.value = value;
+      }
+
+      return { ...s, [band]: value };
+    }));
+  };
+
+  const toggleEffectExpanded = (stemId: string, effect: 'reverb' | 'delay' | 'eq') => {
     setExpandedEffects(prev => ({
       ...prev,
       [stemId]: prev[stemId] === effect ? null : effect
@@ -3136,6 +3205,46 @@ export default function ProjectDetailPage() {
                                 />
                               </>
                             )}
+                          </div>
+                        )}
+                        {/* EQ - collapsible */}
+                        <button
+                          type="button"
+                          onClick={() => toggleEffectExpanded(stem.id, 'eq')}
+                          className={`flex items-center gap-1 w-full text-left ${expandedEffects[stem.id] === 'eq' ? 'text-cyan-600 dark:text-cyan-400' : ''}`}
+                        >
+                          <span className="text-[9px] text-gray-400" title="EQ: 3-band equalizer">EQ</span>
+                          <span className={`text-[8px] ${expandedEffects[stem.id] === 'eq' ? 'rotate-90' : ''} transition-transform`}>▶</span>
+                        </button>
+                        {expandedEffects[stem.id] === 'eq' && (
+                          <div className="flex justify-around py-2 pl-2 border-l-2 border-cyan-200 dark:border-cyan-800">
+                            <Knob
+                              label="Low"
+                              value={stem.eqLow}
+                              min={-12}
+                              max={12}
+                              onChange={(v) => handleEqChange(stem.id, 'eqLow', v)}
+                              color="emerald"
+                              size="sm"
+                            />
+                            <Knob
+                              label="Mid"
+                              value={stem.eqMid}
+                              min={-12}
+                              max={12}
+                              onChange={(v) => handleEqChange(stem.id, 'eqMid', v)}
+                              color="emerald"
+                              size="sm"
+                            />
+                            <Knob
+                              label="High"
+                              value={stem.eqHigh}
+                              min={-12}
+                              max={12}
+                              onChange={(v) => handleEqChange(stem.id, 'eqHigh', v)}
+                              color="emerald"
+                              size="sm"
+                            />
                           </div>
                         )}
                         {/* Stereo Level meter - always show */}
