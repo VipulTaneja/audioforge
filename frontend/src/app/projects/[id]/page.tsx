@@ -32,6 +32,7 @@ import {
   Volume2,
   VolumeX,
   Wand2,
+  Waves,
   X,
 } from 'lucide-react';
 
@@ -230,6 +231,7 @@ export default function ProjectDetailPage() {
   const [assetSearch, setAssetSearch] = useState('');
   const [demucsModel, setDemucsModel] = useState<DemucsModel>('htdemucs');
   const [stemMode, setStemMode] = useState<StemMode>('four_stem');
+  const [separator, setSeparator] = useState<'demucs' | 'spleeter'>('demucs');
   const [masterVolume, setMasterVolume] = useState(80);
   const [trackLevels, setTrackLevels] = useState<Record<string, number>>({});
   const [masterLevel, setMasterLevel] = useState(0);
@@ -593,6 +595,7 @@ export default function ProjectDetailPage() {
       const job = await api.createSeparationJob(projectId, [selectedAsset.id], {
         demucs_model: demucsModel,
         stem_mode: stemMode,
+        separator: separator,
       });
       
       // Poll for status
@@ -1960,94 +1963,147 @@ export default function ProjectDetailPage() {
                 
                 {selectedAsset && (
                   <div className="mt-6 pt-6 border-t dark:border-gray-700">
-                    <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-6">
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                          <Sparkles size={16} className="text-purple-500" />
-                          Demucs model
+                          <Waves size={16} className="text-green-500" />
+                          Separator
                         </div>
-                        <div className="grid gap-3">
-                          {DEMUCS_MODEL_OPTIONS.map((option) => {
-                            const isSelected = demucsModel === option.value;
-                            const isDisabled = stemMode === 'four_stem' && !FOUR_STEM_MODELS.has(option.value);
-                            return (
-                              <button
-                                key={option.value}
-                                type="button"
-                                onClick={() => {
-                                  if (!isDisabled) {
-                                    setDemucsModel(option.value);
-                                  }
-                                }}
-                                disabled={isDisabled}
-                                className={`rounded-2xl border p-4 text-left transition ${
-                                  isSelected
-                                    ? 'border-purple-500 bg-purple-50 shadow-sm dark:border-purple-400 dark:bg-purple-950/30'
-                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:border-gray-600 dark:hover:bg-gray-900/60'
-                                } ${isDisabled ? 'cursor-not-allowed opacity-50' : ''}`}
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <span className="font-semibold text-gray-900 dark:text-white">{option.label}</span>
-                                  {isSelected && (
-                                    <span className="rounded-full bg-purple-600 px-2.5 py-1 text-xs font-semibold text-white">
-                                      Selected
-                                    </span>
-                                  )}
-                                  {isDisabled && (
-                                    <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                      2-stem only
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{option.description}</p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                          <SplitSquareVertical size={16} className="text-blue-500" />
-                          Output mode
-                        </div>
-                        <div className="grid gap-3">
-                          {STEM_MODE_OPTIONS.map((option) => {
-                            const isSelected = stemMode === option.value;
-                            return (
-                              <button
-                                key={option.value}
-                                type="button"
-                                onClick={() => setStemMode(option.value)}
-                                className={`rounded-2xl border p-4 text-left transition ${
-                                  isSelected
-                                    ? 'border-blue-500 bg-blue-50 shadow-sm dark:border-blue-400 dark:bg-blue-950/30'
-                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:border-gray-600 dark:hover:bg-gray-900/60'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <span className="font-semibold text-gray-900 dark:text-white">{option.label}</span>
-                                  {isSelected && (
-                                    <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white">
-                                      Selected
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{option.description}</p>
-                              </button>
-                            );
-                          })}
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={() => setSeparator('demucs')}
+                            className={`rounded-2xl border p-4 text-left transition ${
+                              separator === 'demucs'
+                                ? 'border-green-500 bg-green-50 shadow-sm dark:border-green-400 dark:bg-green-950/30'
+                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:border-gray-600 dark:hover:bg-gray-900/60'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-semibold text-gray-900 dark:text-white">Demucs</span>
+                              {separator === 'demucs' && (
+                                <span className="rounded-full bg-green-600 px-2.5 py-1 text-xs font-semibold text-white">
+                                  Selected
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">High-quality neural source separation</p>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSeparator('spleeter')}
+                            className={`rounded-2xl border p-4 text-left transition ${
+                              separator === 'spleeter'
+                                ? 'border-green-500 bg-green-50 shadow-sm dark:border-green-400 dark:bg-green-950/30'
+                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:border-gray-600 dark:hover:bg-gray-900/60'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-semibold text-gray-900 dark:text-white">Spleeter</span>
+                              {separator === 'spleeter' && (
+                                <span className="rounded-full bg-green-600 px-2.5 py-1 text-xs font-semibold text-white">
+                                  Selected
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Fast and reliable separation</p>
+                          </button>
                         </div>
                       </div>
+
+                      {separator === 'demucs' && (
+                        <div className="grid gap-6 md:grid-cols-2">
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                              <Sparkles size={16} className="text-purple-500" />
+                              Demucs model
+                            </div>
+                            <div className="grid gap-3">
+                              {DEMUCS_MODEL_OPTIONS.map((option) => {
+                                const isSelected = demucsModel === option.value;
+                                const isDisabled = stemMode === 'four_stem' && !FOUR_STEM_MODELS.has(option.value);
+                                return (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => {
+                                      if (!isDisabled) {
+                                        setDemucsModel(option.value);
+                                      }
+                                    }}
+                                    disabled={isDisabled}
+                                    className={`rounded-2xl border p-4 text-left transition ${
+                                      isSelected
+                                        ? 'border-purple-500 bg-purple-50 shadow-sm dark:border-purple-400 dark:bg-purple-950/30'
+                                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:border-gray-600 dark:hover:bg-gray-900/60'
+                                    } ${isDisabled ? 'cursor-not-allowed opacity-50' : ''}`}
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <span className="font-semibold text-gray-900 dark:text-white">{option.label}</span>
+                                      {isSelected && (
+                                        <span className="rounded-full bg-purple-600 px-2.5 py-1 text-xs font-semibold text-white">
+                                          Selected
+                                        </span>
+                                      )}
+                                      {isDisabled && (
+                                        <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                          2-stem only
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{option.description}</p>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                              <SplitSquareVertical size={16} className="text-blue-500" />
+                              Output mode
+                            </div>
+                            <div className="grid gap-3">
+                              {STEM_MODE_OPTIONS.map((option) => {
+                                const isSelected = stemMode === option.value;
+                                return (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => setStemMode(option.value)}
+                                    className={`rounded-2xl border p-4 text-left transition ${
+                                      isSelected
+                                        ? 'border-blue-500 bg-blue-50 shadow-sm dark:border-blue-400 dark:bg-blue-950/30'
+                                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:border-gray-600 dark:hover:bg-gray-900/60'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <span className="font-semibold text-gray-900 dark:text-white">{option.label}</span>
+                                      {isSelected && (
+                                        <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white">
+                                          Selected
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{option.description}</p>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/60">
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
                         Ready to process: {getAssetDisplayName(selectedAsset)}
                       </p>
                       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Model: {DEMUCS_MODEL_OPTIONS.find((option) => option.value === demucsModel)?.label} · Output:{' '}
-                        {STEM_MODE_OPTIONS.find((option) => option.value === stemMode)?.label}
+                        {separator === 'demucs' 
+                          ? `Model: ${DEMUCS_MODEL_OPTIONS.find((option) => option.value === demucsModel)?.label}`
+                          : 'Using Spleeter'
+                        } · Output: {STEM_MODE_OPTIONS.find((option) => option.value === stemMode)?.label}
                       </p>
-                      {stemMode === 'four_stem' && (
+                      {separator === 'demucs' && stemMode === 'four_stem' && (
                         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                           For reliable four-part separation, the UI now limits this mode to HT Demucs variants.
                         </p>

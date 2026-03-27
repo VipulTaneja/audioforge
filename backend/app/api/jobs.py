@@ -38,14 +38,23 @@ async def create_job(
         params = dict(job.params or {})
         demucs_model = params.get("demucs_model", "htdemucs")
         stem_mode = params.get("stem_mode", "four_stem")
+        separator = params.get("separator", "demucs")
 
-        if stem_mode == "four_stem" and demucs_model not in FOUR_STEM_MODELS:
-            raise HTTPException(
-                status_code=400,
-                detail="The selected model only supports reliable vocals/accompaniment extraction. Choose HT Demucs or HT Demucs FT for 4-stem separation.",
-            )
-        if stem_mode == "two_stem_vocals" and demucs_model not in TWO_STEM_MODELS:
-            raise HTTPException(status_code=400, detail="Unsupported model for two-stem separation")
+        if separator == "demucs":
+            if stem_mode == "four_stem" and demucs_model not in FOUR_STEM_MODELS:
+                raise HTTPException(
+                    status_code=400,
+                    detail="The selected model only supports reliable vocals/accompaniment extraction. Choose HT Demucs or HT Demucs FT for 4-stem separation.",
+                )
+            if stem_mode == "two_stem_vocals" and demucs_model not in TWO_STEM_MODELS:
+                raise HTTPException(status_code=400, detail="Unsupported model for two-stem separation")
+        elif separator == "spleeter":
+            if stem_mode == "four_stem":
+                pass
+            elif stem_mode == "two_stem_vocals":
+                pass
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported stem mode for Spleeter")
         
         for asset_id in job.asset_ids:
             asset_result = await db.execute(select(Asset).where(Asset.id == asset_id))
@@ -71,6 +80,12 @@ async def create_job(
         "instrument_id": "tasks.identify_instruments",
     }
 
+    if job.type == "separate" and job.params:
+        params = dict(job.params)
+        separator = params.get("separator", "demucs")
+        if separator == "spleeter":
+            job_type_handlers["separate"] = "tasks.separate_audio_spleeter"
+    
     handler_name = job_type_handlers.get(job.type)
     
     if handler_name:

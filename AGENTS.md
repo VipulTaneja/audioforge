@@ -285,3 +285,22 @@ All controls update audio in real-time without needing to restart playback.
 - `GET /api/v1/assets/{id}/download` - Downloads the asset file
 
 The frontend proxies `/api/v1/*` to the backend via Next.js rewrites in `next.config.js`.
+
+---
+
+## Audio OSS Implementation Guidance
+
+Refer to `audio_oss_implementation_guidance.md` for the recommended audio library stack:
+
+- **Media I/O**: PyAV + FFmpeg CLI (NOT librosa/torchaudio as core)
+- **Simple edits**: PyDub
+- **Noise reduction**: noisereduce
+- **Speech ML**: SpeechBrain + pyannote.audio
+- **Stem separation**: Spleeter (NOT Demucs as default - maintenance risk)
+- **Effects**: Pedalboard (with license review)
+
+Key principles:
+- Use WAV/PCM internally to avoid generational loss
+- Keep editing, DSP, and ML inference in separate layers
+- Isolate ML services from core product services
+- Benchmark on project data, not demo files

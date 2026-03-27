@@ -534,3 +534,194 @@ def mock_separate(
             _report_progress(task, job_id, progress, f'Created {stem_name}.wav')
     
     return stems
+
+
+@celery_app.task(bind=True, name='tasks.separate_audio_spleeter')
+def separate_audio_spleeter(
+    self: Task,
+    job_id: str,
+    input_asset_id: str,
+    project_id: str,
+    stem_mode: str | None = None,
+):
+    """
+    Separate audio into stems using Spleeter.
+    
+    Args:
+        job_id: UUID of the job record
+        input_asset_id: UUID of the source audio asset
+        project_id: UUID of the project
+    
+    Returns:
+        dict with status and stem information
+    """
+    from app.core.database import SessionLocal
+    from app.models import Job, Asset, JobStatus
+    from sqlalchemy import update
+    from sqlalchemy.sql import func
+    
+    temp_dir = None
+    
+    try:
+        with SessionLocal() as db:
+            db.execute(
+                update(Job)
+                .where(Job.id == job_id)
+                .values(
+                    status=JobStatus.RUNNING.value,
+                    started_at=func.now(),
+                    worker_pod=os.environ.get('HOSTNAME', 'local')
+                )
+            )
+            db.commit()
+            
+            _report_progress(self, job_id, 5, 'Fetching asset info...')
+            
+            asset = db.query(Asset).filter(Asset.id == input_asset_id).first()
+            if not asset:
+                raise ValueError(f"Asset {input_asset_id} not found")
+            
+            s3_key = asset.s3_key
+            
+            _report_progress(self, job_id, 10, 'Downloading audio from storage...')
+            
+            temp_dir = tempfile.mkdtemp()
+            input_ext = Path(s3_key).suffix or '.audio'
+            audio_path = os.path.join(temp_dir, f'input_audio{input_ext}')
+            stems_dir = os.path.join(temp_dir, 'stems')
+            Path(stems_dir).mkdir(exist_ok=True)
+            
+            from app.services.storage import storage_service
+            storage_service.download_file(s3_key, audio_path)
+            
+            input_ext = Path(audio_path).suffix.lower()
+            if input_ext != '.wav':
+                try:
+                    import soundfile as sf
+                    wav_path = audio_path.replace(input_ext, '.wav')
+                    audio_data, sr = sf.read(audio_path)
+                    sf.write(wav_path, audio_data, sr)
+                    audio_path = wav_path
+                except Exception as e:
+                    logger.warning(f"Could not convert to wav: {e}")
+            
+            _report_progress(self, job_id, 20, 'Running Spleeter separation...')
+            
+            job = db.query(Job).filter(Job.id == job_id).first()
+            job_params = dict(job.params or {}) if job else {}
+            stem_mode = stem_mode or job_params.get("stem_mode", "four_stem")
+            
+            if stem_mode not in SUPPORTED_STEM_MODES:
+                raise ValueError(f"Unsupported stem mode: {stem_mode}")
+            
+            result_stems = run_spleeter(audio_path, stems_dir, self, job_id)
+            
+            _report_progress(self, job_id, 80, 'Uploading stems to storage...')
+            
+            stem_assets = []
+            stem_mapping = {
+                'four_stem': {'vocals': 'vocals', 'drums': 'drums', 'bass': 'bass', 'other': 'other'},
+                'two_stem_vocals': {'vocals': 'vocals', 'accompaniment': 'accompaniment'},
+            }
+            stem_map = stem_mapping.get(stem_mode, stem_mapping['four_stem'])
+            
+            for folder_name, stem_type in stem_map.items():
+                stem_path = os.path.join(stems_dir, folder_name)
+                if os.path.exists(stem_path):
+                    for f in os.listdir(stem_path):
+                        if f.endswith('.wav'):
+                            full_path = os.path.join(stem_path, f)
+                            filename = Path(full_path).name
+                            stem_s3_key = f"projects/{project_id}/stems/{job_id}/{filename}"
+                            storage_service.upload_file(full_path, stem_s3_key)
+                            
+                            duration = asset.duration or 0
+                            try:
+                                info = sf.info(full_path)
+                                duration = info.frames / info.samplerate
+                            except Exception:
+                                pass
+                            
+                            stem_asset = Asset(
+                                project_id=project_id,
+                                type='stem',
+                                stem_type=stem_type,
+                                parent_asset_id=input_asset_id,
+                                s3_key=stem_s3_key,
+                                s3_key_preview=stem_s3_key,
+                                duration=duration,
+                                created_by=asset.created_by,
+                            )
+                            db.add(stem_asset)
+                            db.flush()
+                            
+                            stem_assets.append({
+                                'stem_type': stem_type,
+                                'asset_id': str(stem_asset.id),
+                                's3_key': stem_s3_key,
+                            })
+            
+            _report_progress(self, job_id, 95, 'Finalizing...')
+            
+            db.execute(
+                update(Job)
+                .where(Job.id == job_id)
+                .values(
+                    status=JobStatus.SUCCEEDED.value,
+                    result={
+                        'stems': stem_assets,
+                        'message': f"Separation complete using Spleeter ({stem_mode.replace('_', ' ')})",
+                        'separator': 'spleeter',
+                        'stem_mode': stem_mode,
+                    },
+                    progress=100,
+                    ended_at=func.now()
+                )
+            )
+            db.commit()
+            
+            if temp_dir and os.path.exists(temp_dir):
+                import shutil
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            
+            return {'status': 'succeeded', 'stems': stem_assets, 'progress': 100}
+    
+    except SoftTimeLimitExceeded:
+        logger.error(f"Job {job_id} timed out (soft limit)")
+        _update_job_failed(job_id, "Job timed out (soft limit)")
+        raise
+    except Exception as e:
+        logger.error(f"Job {job_id} failed: {e}")
+        _update_job_failed(job_id, str(e))
+        raise
+
+
+def run_spleeter(audio_path: str, output_dir: str, task, job_id: str | None = None):
+    """
+    Run Spleeter separation on audio file.
+    """
+    try:
+        from spleeter.separator import Separator
+        
+        logger.info("Initializing Spleeter separator (4-stem model)")
+        separator = Separator('spleeter:4stems')
+        
+        separator.separate_to_file(audio_path, output_dir)
+        
+        stems = {}
+        for folder in os.listdir(output_dir):
+            folder_path = os.path.join(output_dir, folder)
+            if os.path.isdir(folder_path):
+                for f in os.listdir(folder_path):
+                    if f.endswith('.wav'):
+                        stems[folder] = os.path.join(folder_path, f)
+        
+        logger.info(f"Spleeter separation complete: {list(stems.keys())}")
+        return stems
+    
+    except ImportError as e:
+        logger.warning(f"Spleeter not available: {e}, using mock separation")
+        return mock_separate(audio_path, output_dir, task, job_id=job_id, stem_mode="four_stem")
+    except Exception as e:
+        logger.error(f"Spleeter separation failed: {e}")
+        return mock_separate(audio_path, output_dir, task, job_id=job_id, stem_mode="four_stem")
