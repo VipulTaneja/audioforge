@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started with AudioForge 🎵</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            line-height: 1.7; 
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { 
+            color: #00d4ff; 
+            font-size: 2.5rem; 
+            margin-bottom: 10px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+        .hero-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
+        }
+        .hero-box h2 { font-size: 1.8rem; margin-bottom: 15px; }
+        .hero-box p { font-size: 1.1rem; opacity: 0.9; }
+        .step {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #00d4ff;
+            transition: transform 0.2s;
+        }
+        .step:hover { transform: translateX(5px); }
+        .step-number {
+            display: inline-block;
+            background: #00d4ff;
+            color: #1a1a2e;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 35px;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        .step h3 { display: inline; color: #00d4ff; font-size: 1.3rem; }
+        .step p { margin-top: 10px; color: #bbb; }
+        .tip-box {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            color: #1a1a2e;
+        }
+        .tip-box strong { font-size: 1.1rem; }
+        .warning-box {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .emoji { font-size: 1.5rem; margin-right: 5px; }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 30px 0;
+        }
+        .feature-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .feature-card:hover { 
+            background: rgba(255, 255, 255, 0.12); 
+            transform: translateY(-5px);
+        }
+        .feature-card .icon { font-size: 2.5rem; margin-bottom: 10px; }
+        .feature-card h4 { color: #00d4ff; margin-bottom: 8px; }
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            height: 30px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            font-weight: bold;
+            color: #1a1a2e;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        .nav-links {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .nav-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .nav-btn:hover { 
+            transform: scale(1.05); 
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Welcome to AudioForge!</h1>
+        <p class="subtitle">Your magical audio playground 🪄</p>
+        
+        <div class="hero-box">
+            <h2>🎮 Ready to Make Some Music Magic?</h2>
+            <p>You've just discovered the coolest tool for separating, editing, and mixing audio. 
+            Think of it as your personal audio workshop where you're the boss! 🔧</p>
+        </div>
+
+        <div class="tip-box">
+            <strong>💡 Pro Tip:</strong> This guide assumes you know how to click buttons. 
+            If you can order pizza online, you're qualified to use this! 🍕
+        </div>
+
+        <div class="step">
+            <span class="step-number">1</span>
+            <h3>Create Your First Project</h3>
+            <p>Projects are like folders—they keep your audio files organized. 
+            Click the <strong>"Projects"</strong> button in the top navigation, then hit the big 
+            <strong>"+ New Project"</strong> button. Give it a cool name like "My Awesome Mix" 
+            or "Experiment #42" (we won't judge). 🎯</p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <h3>Upload Your Audio</h3>
+            <p>Now comes the fun part! Open your new project and go to the <strong>"Upload"</strong> tab. 
+            You can drag and drop your audio files (MP3, WAV, FLAC—we're flexible!) or click to browse.
+            It's like feeding your pet, but instead of a cat, it's digital audio files. 🐱🎵</p>
+        </div>
+
+        <div class="tip-box">
+            <strong>📁 Supported Formats:</strong> MP3, WAV, FLAC, M4A, OGG, and more! 
+            If it's audio, we've got you covered. We've even got your back if it's NOT audio—we'll 
+            probably just stare at it confused. 🤔
+        </div>
+
+        <div class="step">
+            <span class="step-number">3</span>
+            <h3>Explore Your Assets</h3>
+            <p>Once uploaded, your files appear in the asset list. You can:</p>
+            <ul style="margin-left: 20px; margin-top: 10px; color: #bbb;">
+                <li>Preview them by clicking the ▶️ play button</li>
+                <li>Rename them by clicking on the name (we won't tell anyone)</li>
+                <li>Delete them if they misbehave (they can't cry, so it's okay) 😢</li>
+                <li>Get fancy with BPM and Key detection (more on this later!)</li>
+            </ul>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="icon">🎵</div>
+                <h4>Separate</h4>
+                <p>Split songs into stems</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🎚️</div>
+                <h4>Mix</h4>
+                <p>Mix your stems together</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🎤</div>
+                <h4>Upload</h4>
+                <p>Add your audio files</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">⚙️</div>
+                <h4>Admin</h4>
+                <p>Manage jobs & tasks</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">4</span>
+            <h3>What Happens Next?</h3>
+            <p>Here's your adventure map:</p>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 25%;">Step 1: Upload ✅</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 50%;">Step 2: Separate 🎛️</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 75%;">Step 3: Mix & Tweak 🎚️</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 100%;">Step 4: Export & Rock! 🤘</div>
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <strong>⚠️ Wait! Before You Dive In:</strong>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li>Audio processing takes time—be patient like a zen master 🧘</li>
+                <li>Big files = longer processing (we're not miracle workers... yet)</li>
+                <li>If something breaks, check the "Admin Jobs" page—it's like the black box 
+                flight recorder for your audio adventures ✈️</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <span class="step-number">✨</span>
+            <h3>You're Ready to Roll!</h3>
+            <p>That's it! You're now equipped with the knowledge of a thousand audio engineers. 
+            Okay, maybe not that many, but enough to get started! Go forth and make some noise! 🔊</p>
+            <p style="margin-top: 15px; font-style: italic; color: #888;">
+                "Music is the universal language of mankind." — Henry Wadsworth Longfellow<br>
+                (We think he'd approve of AudioForge too)
+            </p>
+        </div>
+
+        <div class="nav-links">
+            <a href="separate.html" class="nav-btn">🎛️ Learn Stem Separation</a>
+            <a href="mixer.html" class="nav-btn">🎚️ Master the Mixer</a>
+            <a href="analysis.html" class="nav-btn">🔍 Audio Analysis Tools</a>
+            <a href="jobs.html" class="nav-btn">📋 Understanding Jobs</a>
+        </div>
+    </div>
+</body>
+</html>

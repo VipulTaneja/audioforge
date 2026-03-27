@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { FolderPlus, Layers3, Search, ShieldAlert } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { FolderPlus, Layers3, Search, ShieldAlert, Trash2 } from 'lucide-react';
 import { api, Project } from '@/lib/api';
 import { formatBrowserDateTime } from '@/lib/datetime';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -242,6 +243,26 @@ function MetricCard({ label, value, icon }: { label: string; value: string; icon
 }
 
 function ProjectCard({ project }: { project: LocalProject }) {
+  const router = useRouter();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDeleting(true);
+    try {
+      await api.deleteProject(project.id);
+      setShowConfirm(false);
+      router.push('/projects');
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete project');
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Link href={`/projects/${project.id}`} className="group">
       <article className="rounded-[28px] border border-white/70 bg-white/85 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.07)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_80px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-slate-950/75">
@@ -250,8 +271,21 @@ function ProjectCard({ project }: { project: LocalProject }) {
             <p className="truncate text-lg font-semibold text-slate-900 dark:text-white">{project.name}</p>
             <p className="mt-1 font-mono text-xs text-slate-400 dark:text-slate-500">{project.id}</p>
           </div>
-          <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-            Open
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowConfirm(true);
+              }}
+              className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-red-800 dark:hover:bg-red-950 dark:hover:text-red-400"
+              title="Delete project"
+            >
+              <Trash2 size={16} />
+            </button>
+            <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+              Open
+            </div>
           </div>
         </div>
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -265,6 +299,36 @@ function ProjectCard({ project }: { project: LocalProject }) {
           </div>
         </div>
       </article>
+      
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[24px] border border-white/70 bg-white/95 p-5 shadow-[0_28px_90px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/95">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Delete Project?</h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              This will permanently delete &quot;{project.name}&quot; and all its assets and jobs. This action cannot be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowConfirm(false);
+                }}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Link>
   );
 }

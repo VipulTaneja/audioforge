@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Mixer - AudioForge Guide 🎚️</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            line-height: 1.7; 
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { 
+            color: #4ecdc4; 
+            font-size: 2.2rem; 
+            margin-bottom: 10px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(78, 205, 196, 0.3);
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+        .breadcrumb {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+        .breadcrumb a { color: #00d4ff; text-decoration: none; }
+        .breadcrumb span { color: #666; margin: 0 10px; }
+        .intro-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .intro-box h2 { font-size: 1.6rem; margin-bottom: 15px; }
+        .step {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4ecdc4;
+        }
+        .step-number {
+            display: inline-block;
+            background: #4ecdc4;
+            color: #1a1a2e;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 35px;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        .step h3 { display: inline; color: #4ecdc4; font-size: 1.3rem; }
+        .step p { margin-top: 10px; color: #bbb; }
+        .mixer-diagram {
+            background: linear-gradient(180deg, #2d2d44 0%, #1a1a2e 100%);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 25px 0;
+            border: 2px solid #4ecdc4;
+        }
+        .channel-strip {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .channel-label {
+            width: 80px;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+        .controls-demo {
+            display: flex;
+            gap: 10px;
+            flex: 1;
+            flex-wrap: wrap;
+        }
+        .control {
+            background: rgba(78, 205, 196, 0.2);
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .slider-demo {
+            width: 100px;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            position: relative;
+        }
+        .slider-demo::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #4ecdc4;
+            border-radius: 50%;
+            top: -6px;
+            left: 60%;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .feature-card .icon { font-size: 2rem; margin-bottom: 10px; }
+        .feature-card h4 { color: #4ecdc4; margin-bottom: 8px; }
+        .tip-box {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            color: #1a1a2e;
+        }
+        .warning-box {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .control-guide {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .control-item {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+        }
+        .control-item .icon { font-size: 2rem; margin-bottom: 8px; }
+        .control-item h5 { color: #00d4ff; margin-bottom: 5px; }
+        .meter-explainer {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #333;
+        }
+        .meter-bar {
+            height: 20px;
+            background: linear-gradient(90deg, #00ff88 0%, #ffff00 50%, #ff0000 100%);
+            border-radius: 10px;
+            margin: 10px 0;
+            position: relative;
+        }
+        .meter-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .nav-links {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .nav-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="getting-started.html">🏠 Home</a> <span>›</span> Mixer Guide
+        </div>
+
+        <h1>🎚️ Welcome to the Mixing Console</h1>
+        <p class="subtitle">Where you become the audio wizard! 🧙‍♂️</p>
+
+        <div class="intro-box">
+            <h2>🎛️ What's the Mixer?</h2>
+            <p>Think of the mixer as your command center for audio. It's where you take those separated stems 
+            (vocals, drums, bass, other) and blend them together into your perfect mix. It's like being a chef, 
+            but instead of spices, you're using volume faders and pan knobs!</p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">1</span>
+            <h3>Get Your Stems Ready</h3>
+            <p>Before you can mix, you need stems! Either separate a song (go to the Separate tab!) 
+            or manually upload stem files. Once you've got stems, they appear in the "Send to Mixer" 
+            section. Just check the boxes next to the stems you want to use and click the button! 📥</p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <h3>Meet Your Channel Strips</h3>
+            <p>Each stem gets its own "channel strip" — that's your row of controls for that specific track. 
+            From left to right, you'll see:</p>
+            <div class="controls-demo" style="margin-top: 15px;">
+                <div class="control">🎵 Name</div>
+                <div class="control">☑️ Select</div>
+                <div class="control">🔇 Mute</div>
+                <div class="control">🎧 Solo</div>
+                <div class="control">🎚️ Volume</div>
+                <div class="control">↔️ Pan</div>
+            </div>
+        </div>
+
+        <div class="control-guide">
+            <div class="control-item">
+                <div class="icon">🔇</div>
+                <h5>Mute</h5>
+                <p>Silences that track completely. Useful when you want to hear "everything except the drums" or just need a break from something! 😴</p>
+            </div>
+            <div class="control-item">
+                <div class="icon">🎧</div>
+                <h5>Solo</h5>
+                <p>This is the "I'm the only important one" button! When you solo a track, ALL other tracks go on vacation (mute). Perfect for focused listening! 🎧</p>
+            </div>
+            <div class="control-item">
+                <div class="icon">☑️</div>
+                <h5>Select</h5>
+                <p>Check this to include that track in the mix. Uncheck to exclude it. Simple on/off for audio inclusion!</p>
+            </div>
+            <div class="control-item">
+                <div class="icon">🎚️</div>
+                <h5>Volume</h5>
+                <p>The slider that controls how loud that track is. Slide up = louder, slide down = quieter. 
+                Like the volume knob on your remote, but more fun! 📈</p>
+            </div>
+            <div class="control-item">
+                <div class="icon">↔️</div>
+                <h5>Pan</h5>
+                <p>Decides where the sound comes from in your speakers. Left = left speaker, Right = right speaker, 
+                Center = both equally. It's like choosing where to sit in a concert hall! 🎭</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">3</span>
+            <h3>The Master Section</h3>
+            <p>At the far right of your mixer sits the Master section—your main volume control. 
+            This affects the final output of everything combined. Think of it as the main faucet 
+            that controls the water to your entire house!</p>
+        </div>
+
+        <div class="meter-explainer">
+            <h3 style="color: #4ecdc4; margin-bottom: 15px;">📊 Understanding the Meters</h3>
+            
+            <p><strong>Peak Meter (top):</strong> Shows the highest volume moment. If it hits red, 
+            you're too loud and things might distort! 🚨</p>
+            <div class="meter-bar"></div>
+            <div class="meter-labels">
+                <span>-60dB</span>
+                <span>-12dB</span>
+                <span>0dB (clip!)</span>
+            </div>
+
+            <p style="margin-top: 20px;"><strong>RMS Meter (bottom):</strong> Shows the "average" loudness. 
+            This is what your ears actually perceive as volume. Think of it like your heart rate— 
+            it's the steady rhythm, not the spikes! ❤️</p>
+            
+            <p style="margin-top: 20px;"><strong>Phase Meter:</strong> Tells you about stereo quality. 
+            Numbers near +100 mean mono-compatible (safe). Negative numbers? That means phase issues— 
+            your speakers might be fighting each other! 🥊</p>
+        </div>
+
+        <div class="tip-box">
+            <strong>💡 Golden Rules of Mixing:</strong>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li><strong>Solo is temporary</strong> — Always listen to the full mix, not just soloed tracks!</li>
+                <li><strong>Don't hit red</strong> — Keep your peaks below 0dB to avoid distortion</li>
+                <li><strong>Balance > EQ</strong> — Try adjusting volume before using fancy filters</li>
+                <li><strong>Pan creates space</strong> — Don't stack everything in the center!</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <span class="step-number">4</span>
+            <h3>Playback Controls</h3>
+            <p>At the top of the mixer, you'll find your playback controls:</p>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="icon">▶️</div>
+                    <h4>Play/Stop</h4>
+                    <p>Start and stop playback</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">⏱️</div>
+                    <h4>Time Display</h4>
+                    <p>Current position / Total length</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🔁</div>
+                    <h4>Loop Toggle</h4>
+                    <p>Repeat playback continuously</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">5</span>
+            <h3>Spectrum Analyzer</h3>
+            <p>Click the "Spectrum" button to reveal a real-time frequency visualizer! 
+            It's like having X-ray vision for sound. Watch the bars dance as music plays— 
+            you can literally SEE the bass hitting and the treble singing! 🎆</p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">6</span>
+            <h3>Snapshots & Markers</h3>
+            <p>Two powerful tools for organization:</p>
+            <div style="margin-top: 15px;">
+                <div style="background: rgba(78, 205, 196, 0.2); padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                    <strong>📸 Snapshots</strong> — Save your current mix settings (all volumes, pans, mutes) 
+                    as a snapshot. Come back later and reload it! It's like saving your game progress.
+                </div>
+                <div style="background: rgba(255, 107, 107, 0.2); padding: 15px; border-radius: 10px;">
+                    <strong>📍 Markers</strong> — Add markers at specific times in your mix. 
+                    Perfect for noting "drop comes at 2:30" or "change verse here"!
+                </div>
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <strong>⚠️ Important!</strong>
+            <p style="margin-top: 10px;">Changes you make in the mixer are temporary! They reset when you refresh. 
+            If you want to save your mix settings, use the <strong>Snapshot</strong> feature. 
+            It's like taking a photo of your settings before you close the app! 📸</p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">7</span>
+            <h3>Export Your Masterpiece</h3>
+            <p>Once you're happy with your mix, it's time to share it with the world! 
+            Look for the download/export button to save your mixed audio. You can export as WAV 
+            (highest quality) or other formats. Go ahead, show the world your creation! 🌟</p>
+        </div>
+
+        <div class="tip-box">
+            <strong>🎯 Quick Recap:</strong>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li>Volume sliders → Control loudness</li>
+                <li>Pan knobs → Control stereo position</li>
+                <li>Mute → Silence a track</li>
+                <li>Solo → Hear only one track</li>
+                <li>Master → Controls final output</li>
+                <li>Snapshots → Save/load mix settings</li>
+            </ul>
+        </div>
+
+        <div class="nav-links">
+            <a href="getting-started.html" class="nav-btn">🏠 Back to Start</a>
+            <a href="separate.html" class="nav-btn">🎛️ Stem Separation</a>
+            <a href="analysis.html" class="nav-btn">🔍 Audio Analysis Tools</a>
+            <a href="jobs.html" class="nav-btn">📋 Job Troubleshooting</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -249,6 +249,8 @@ export default function ProjectDetailPage() {
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [snapshotName, setSnapshotName] = useState('');
   const [snapshotDesc, setSnapshotDesc] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
   
   const playbackRef = useRef<NodeJS.Timeout | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -727,6 +729,19 @@ export default function ProjectDetailPage() {
       console.error('Failed to delete asset:', error);
     } finally {
       setIsDeletingAssetId(null);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    setIsDeletingProject(true);
+    try {
+      await api.deleteProject(projectId);
+      setShowDeleteConfirm(false);
+      router.push('/projects');
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete project');
+      setIsDeletingProject(false);
     }
   };
 
@@ -1498,13 +1513,15 @@ export default function ProjectDetailPage() {
                 <span>←</span>
                 <span className="text-sm">Projects</span>
               </button>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-600 dark:text-sky-300">
-                  AudioForge Workspace
-                </p>
-                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  {projectName || `Project #${projectId}`}
-                </h1>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50 dark:border-red-800 dark:bg-red-950/50 dark:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-900"
+                  title="Delete project"
+                >
+                  <Trash2 size={16} className="mr-2 inline" />
+                  Delete
+                </button>
               </div>
             </div>
             <nav className="flex flex-wrap items-center gap-3">
@@ -2657,8 +2674,34 @@ export default function ProjectDetailPage() {
               ))}
             </div>
           </div>
-        )}
+          )}
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[24px] border border-white/70 bg-white/95 p-5 shadow-[0_28px_90px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/95">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Delete Project?</h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              This will permanently delete &quot;{projectName || projectId}&quot; and all its assets and jobs. This action cannot be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                disabled={isDeletingProject}
+                className="rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isDeletingProject ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

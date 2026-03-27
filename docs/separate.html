@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stem Separation - AudioForge Guide 🎛️</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            line-height: 1.7; 
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { 
+            color: #ff6b6b; 
+            font-size: 2.2rem; 
+            margin-bottom: 10px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+        .breadcrumb {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+        .breadcrumb a { color: #00d4ff; text-decoration: none; }
+        .breadcrumb span { color: #666; margin: 0 10px; }
+        .intro-box {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .intro-box h2 { font-size: 1.6rem; margin-bottom: 15px; }
+        .intro-box p { font-size: 1.05rem; }
+        .analogy {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            color: #1a1a2e;
+        }
+        .analogy h3 { margin-bottom: 10px; }
+        .step {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff6b6b;
+        }
+        .step:hover { transform: translateX(5px); }
+        .step-number {
+            display: inline-block;
+            background: #ff6b6b;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 35px;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        .step h3 { display: inline; color: #ff6b6b; font-size: 1.3rem; }
+        .step p { margin-top: 10px; color: #bbb; }
+        .highlight {
+            background: rgba(255, 107, 107, 0.2);
+            padding: 3px 8px;
+            border-radius: 5px;
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .info-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .info-card .icon { font-size: 2.5rem; margin-bottom: 10px; }
+        .info-card h4 { color: #00d4ff; margin-bottom: 8px; }
+        .model-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .model-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        .model-card:hover, .model-card.selected {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+        .model-card h4 { color: #00d4ff; margin-bottom: 10px; }
+        .model-card .badge {
+            display: inline-block;
+            background: #00d4ff;
+            color: #1a1a2e;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .tip-box {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            color: #1a1a2e;
+        }
+        .warning-box {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .fun-fact {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #ffd93d;
+            font-style: italic;
+        }
+        .nav-links {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .nav-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .progress-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin: 30px 0;
+            position: relative;
+        }
+        .progress-indicator::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            z-index: 0;
+        }
+        .progress-step {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+        .progress-step .circle {
+            width: 50px;
+            height: 50px;
+            background: #1a1a2e;
+            border: 3px solid #666;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin: 0 auto 10px;
+        }
+        .progress-step.completed .circle {
+            border-color: #00d4ff;
+            background: #00d4ff;
+        }
+        .progress-step.active .circle {
+            border-color: #ff6b6b;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="getting-started.html">🏠 Home</a> <span>›</span> Stem Separation Guide
+        </div>
+
+        <h1>🎛️ The Magic of Stem Separation</h1>
+        <p class="subtitle">Turn one song into four separate tracks!</p>
+
+        <div class="intro-box">
+            <h2>🎵 What's Stem Separation?</h2>
+            <p>Imagine you baked a cake and now you want to separate the flour, sugar, eggs, and chocolate chips. 
+            That's basically what stem separation does—it takes a finished song and magically pulls apart 
+            the vocals, drums, bass, and other instruments into individual tracks!</p>
+        </div>
+
+        <div class="analogy">
+            <h3>🍕 Think of it like this:</h3>
+            <p>You order a supreme pizza with everything on it. Stem separation is like having a machine 
+            that separates it back into: just the cheese, just the pepperoni, just the vegetables, and just the crust. 
+            Now you can eat (or mix!) each part separately!</p>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="icon">🎤</div>
+                <h4>Vocals</h4>
+                <p>The singing voice</p>
+            </div>
+            <div class="info-card">
+                <div class="icon">🥁</div>
+                <h4>Drums</h4>
+                <p>Beats & percussion</p>
+            </div>
+            <div class="info-card">
+                <div class="icon">🎸</div>
+                <h4>Bass</h4>
+                <p>Low-end frequencies</p>
+            </div>
+            <div class="info-card">
+                <div class="icon">🎹</div>
+                <h4>Other</h4>
+                <p>Guitars, synths, etc.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">1</span>
+            <h3>Select Your Audio</h3>
+            <p>Go to your project and find the audio file you want to separate in the 
+            <strong>Upload</strong> tab. Click on it to select it— it'll highlight to show it's ready. 
+            It's like tapping a friend on the shoulder to say "Hey, you're the chosen one!" 👆</p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <h3>Switch to Separate Tab</h3>
+            <p>Click the <span class="highlight">Separate</span> tab at the top of your project view. 
+            This is where the magic happens! You'll see the selected audio file displayed prominently, 
+            like a celebrity on a magazine cover. 📰</p>
+        </div>
+
+        <div class="tip-box">
+            <strong>💡 Quick Access:</strong> After you select an audio file in the Upload tab, 
+            there's a "Separate" button that appears right next to it. Click that and boom—you're 
+            already in the right place!
+        </div>
+
+        <div class="step">
+            <span class="step-number">3</span>
+            <h3>Choose Your Separator</h3>
+            <p>At the top of the Separate tab, you'll see two options:</p>
+            <div class="model-cards">
+                <div class="model-card selected">
+                    <h4>🤖 Demucs</h4>
+                    <p>The popular AI-powered separator. Great for high-quality results on full songs.</p>
+                    <span class="badge">Default</span>
+                </div>
+                <div class="model-card">
+                    <h4>🎵 Spleeter</h4>
+                    <p>The speedy alternative! Fast separation but needs a beefy computer.</p>
+                    <span class="badge">Beta</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">4</span>
+            <h3>Pick Your Model (Demucs Only)</h3>
+            <p>If you chose Demucs, now pick your fighter! Each model is like a different chef:</p>
+            <div class="model-cards">
+                <div class="model-card selected">
+                    <h4>HT Demucs</h4>
+                    <p>The reliable all-rounder. Good results, reasonable speed. Like a trusted home cook.</p>
+                    <span class="badge">Recommended</span>
+                </div>
+                <div class="model-card">
+                    <h4>HT Demucs FT</h4>
+                    <p>The "Fine-Tuned" version. Slower but sometimes delivers better quality. Like a Michelin-star chef—worth the wait!</p>
+                </div>
+                <div class="model-card">
+                    <h4>MDX</h4>
+                    <p>A lighter model. Faster but might miss some details. Quick & decent!</p>
+                </div>
+                <div class="model-card">
+                    <h4>MDX Extra</h4>
+                    <p>The heavy hitter of MDX family. More detail, more time.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">5</span>
+            <h3>Choose Output Mode</h3>
+            <p>How many stems do you want? Think of this as choosing pizza size:</p>
+            <div class="info-grid" style="margin-top: 15px;">
+                <div class="info-card" style="border: 2px solid #00d4ff;">
+                    <div class="icon">4️⃣</div>
+                    <h4>4-Stem</h4>
+                    <p>Vocals + Drums + Bass + Other<br>Full remix control!</p>
+                </div>
+                <div class="info-card">
+                    <div class="icon">2️⃣</div>
+                    <h4>2-Stem (Vocals)</h4>
+                    <p>Vocals vs Everything Else<br>Perfect for karaoke!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <strong>⚠️ Model & Mode Combo Alert!</strong>
+            <p style="margin-top: 10px;">Not all models play nice with all modes. 
+            If you pick <strong>4-Stem</strong>, only <span class="highlight">HT Demucs</span> and 
+            <span class="highlight">HT Demucs FT</span> will work reliably. Other models will be grayed out— 
+            it's not you, it's them! 😅</p>
+        </div>
+
+        <div class="step">
+            <span class="step-number">6</span>
+            <h3>Press the Magic Button!</h3>
+            <p>Ready? Click either:</p>
+            <ul style="margin-left: 20px; margin-top: 10px; color: #bbb;">
+                <li>🎛️ <strong>"Separate into 4 Stems"</strong> for the full experience</li>
+                <li>🎤 <strong>"Extract Vocals + Accompaniment"</strong> for karaoke mode</li>
+            </ul>
+            <p style="margin-top: 15px;">And then... wait. Patience, young padawan! 🍵 The AI is working hard 
+            to analyze and separate your audio. You can watch the progress right there.</p>
+        </div>
+
+        <div class="progress-indicator">
+            <div class="progress-step completed">
+                <div class="circle">✅</div>
+                <p>Upload</p>
+            </div>
+            <div class="progress-step active">
+                <div class="circle">⏳</div>
+                <p>Separating</p>
+            </div>
+            <div class="progress-step">
+                <div class="circle">🎚️</div>
+                <p>Mix</p>
+            </div>
+            <div class="progress-step">
+                <div class="circle">💾</div>
+                <p>Export</p>
+            </div>
+        </div>
+
+        <div class="fun-fact">
+            <strong>🤓 Did you know?</strong> The technology behind stem separation uses deep neural networks 
+            that have "learned" what different instruments sound like by listening to millions of songs. 
+            It's like teaching a robot to recognize pizza toppings by showing it 10 million pizzas!
+        </div>
+
+        <div class="tip-box">
+            <strong>🎯 Pro Tips:</strong>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li><strong>Longer songs = longer processing</strong> — A 3-minute song takes about 5-10 minutes</li>
+                <li><strong>Check Admin Jobs</strong> if you want to see all the gory details of your processing</li>
+                <li><strong>Don't refresh the page</strong> — The job keeps running even if you look away!</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <span class="step-number">🎉</span>
+            <h3>What Happens Next?</h3>
+            <p>Once separation completes (success! 🎊), you'll find shiny new stem files in your asset list. 
+            They're automatically sent to the Mixer tab where you can start blending them together!</p>
+            <p style="margin-top: 15px;"><strong>Next stop: The Mixer!</strong> Head over to the Mixer tab to adjust volumes, 
+            pan positions, and create your perfect mix. It's like being a conductor, but you control everything!</p>
+        </div>
+
+        <div class="nav-links">
+            <a href="getting-started.html" class="nav-btn">🏠 Back to Start</a>
+            <a href="mixer.html" class="nav-btn">🎚️ Go to Mixer Guide</a>
+            <a href="analysis.html" class="nav-btn">🔍 Audio Analysis Tools</a>
+            <a href="jobs.html" class="nav-btn">📋 Job Troubleshooting</a>
+        </div>
+    </div>
+</body>
+</html>

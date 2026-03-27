@@ -50,3 +50,12 @@ def generate_presigned_download_url(s3_key: str, expires_in: int = 3600) -> str:
         ExpiresIn=expires_in,
     )
     return url
+
+
+def delete_s3_object(s3_key: str) -> bool:
+    s3 = get_s3_client()
+    try:
+        s3.delete_object(Bucket=settings.minio_bucket_assets, Key=s3_key)
+        return True
+    except ClientError:
+        return False

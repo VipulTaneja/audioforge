@@ -86,12 +86,15 @@ class ApiService {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      let errorMessage = error.detail || `HTTP ${response.status}`;
-      if (typeof errorMessage === 'object') {
-        errorMessage = JSON.stringify(errorMessage);
+      const errorBody = await response.text();
+      let errorMessage: string;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.detail || `HTTP ${response.status}: ${errorBody}`;
+      } catch {
+        errorMessage = errorBody || `HTTP ${response.status}`;
       }
-      throw new Error(errorMessage);
+      throw new Error(errorMessage || `Request failed with status ${response.status}`);
     }
 
     if (response.status === 204) {
@@ -123,6 +126,12 @@ class ApiService {
 
   async getProject(id: string): Promise<Project> {
     return this.request<Project>(`/api/v1/projects/${id}`);
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    return this.request<void>(`/api/v1/projects/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // Assets
