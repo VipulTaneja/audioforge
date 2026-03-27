@@ -318,8 +318,8 @@ interface StereoMeterProps {
 }
 
 export function StereoMeter({ levelL, levelR, height = 'md', showLabel = false }: StereoMeterProps) {
-  const barHeight = height === 'sm' ? 'h-8' : 'h-12';
-  const barWidth = height === 'sm' ? 'w-1.5' : 'w-2';
+  const barHeight = height === 'sm' ? 'h-10' : 'h-14';
+  const barWidth = height === 'sm' ? 'w-2' : 'w-2.5';
   
   const getColor = (level: number) => {
     if (level > 0.82) return 'bg-red-500';
@@ -327,27 +327,32 @@ export function StereoMeter({ levelL, levelR, height = 'md', showLabel = false }
     return 'bg-emerald-400';
   };
   
-  const widthL = Math.max(4, levelL * 100);
-  const widthR = Math.max(4, levelR * 100);
+  const widthL = Math.max(2, Math.min(100, levelL * 100));
+  const widthR = Math.max(2, Math.min(100, levelR * 100));
   
   return (
-    <div className="flex items-center gap-0.5">
-      {/* L Channel */}
-      <div className={`${barWidth} ${barHeight} rounded-full bg-gray-300 dark:bg-gray-600 overflow-hidden relative`}>
-        <div
-          className={`absolute bottom-0 left-0 right-0 rounded-full transition-all duration-75 ${getColor(levelL)}`}
-          style={{ height: `${widthL}%` }}
-        />
-      </div>
-      {/* R Channel */}
-      <div className={`${barWidth} ${barHeight} rounded-full bg-gray-300 dark:bg-gray-600 overflow-hidden relative`}>
-        <div
-          className={`absolute bottom-0 left-0 right-0 rounded-full transition-all duration-75 ${getColor(levelR)}`}
-          style={{ height: `${widthR}%` }}
-        />
+    <div className="flex flex-col items-center gap-0.5">
+      <div className="flex items-end gap-0.5">
+        {/* L Channel */}
+        <div className={`${barWidth} ${barHeight} rounded-sm bg-gray-200 dark:bg-gray-700 overflow-hidden relative border border-gray-300 dark:border-gray-600`}>
+          <div
+            className={`absolute bottom-0 left-0 right-0 rounded-sm transition-all duration-75 ${getColor(levelL)}`}
+            style={{ height: `${widthL}%` }}
+          />
+        </div>
+        {/* R Channel */}
+        <div className={`${barWidth} ${barHeight} rounded-sm bg-gray-200 dark:bg-gray-700 overflow-hidden relative border border-gray-300 dark:border-gray-600`}>
+          <div
+            className={`absolute bottom-0 left-0 right-0 rounded-sm transition-all duration-75 ${getColor(levelR)}`}
+            style={{ height: `${widthR}%` }}
+          />
+        </div>
       </div>
       {showLabel && (
-        <span className="text-[6px] text-gray-400 ml-0.5">L R</span>
+        <div className="flex gap-1 text-[6px] text-gray-400">
+          <span className="w-2 text-center">L</span>
+          <span className="w-2 text-center">R</span>
+        </div>
       )}
     </div>
   );

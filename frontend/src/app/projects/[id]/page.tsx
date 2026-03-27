@@ -420,26 +420,20 @@ export default function ProjectDetailPage() {
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteTimeDomainData(dataArray);
     
-    let sumL = 0;
-    let sumR = 0;
-    const step = 2;
+    let peakL = 0;
+    let peakR = 0;
     
-    for (let i = 0; i < dataArray.length; i += step) {
+    for (let i = 0; i < dataArray.length; i++) {
       const sample = Math.abs((dataArray[i] - 128) / 128);
-      if (i % 4 === 0) {
-        sumL += sample;
+      if (i % 2 === 0) {
+        peakL = Math.max(peakL, sample);
       } else {
-        sumR += sample;
+        peakR = Math.max(peakR, sample);
       }
     }
     
-    const count = Math.ceil(dataArray.length / step);
-    const avgL = sumL / (count / 2);
-    const avgR = sumR / (count / 2);
-    
-    const variation = 0.1;
-    const l = Math.min(1, avgL * 1.5 + (Math.random() * variation));
-    const r = Math.min(1, avgR * 1.5 + (Math.random() * variation));
+    const l = Math.min(1, peakL * 1.5);
+    const r = Math.min(1, peakR * 1.5);
     
     return { l, r };
   }, []);
