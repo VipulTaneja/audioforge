@@ -6,9 +6,9 @@ import { api, Asset, DemucsModel, Stem, StemMode, TimelineMarker, ProjectSnapsho
 import { formatBrowserDateTime } from '@/lib/datetime';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
-  ArrowUpDown,
   AudioWaveform,
   CheckSquare,
+  ChevronDown,
   Clock3,
   Download,
   Flag,
@@ -53,6 +53,9 @@ interface TimelineStem {
   pan: number;
   muted: boolean;
   solo: boolean;
+  reverb: number;
+  delay: number;
+  delayFeedback: number;
 }
 
 type AssetFilterValue = 'all' | 'original' | 'stem' | 'mix' | 'preset';
@@ -187,6 +190,9 @@ function buildTimelineStemsFromAssets(stemAssets: Asset[]): TimelineStem[] {
       pan: 0,
       muted: false,
       solo: false,
+      reverb: 0,
+      delay: 0,
+      delayFeedback: 0,
       ...config,
     };
   });
@@ -203,7 +209,7 @@ export default function ProjectDetailPage() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'mix'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'denoise' | 'mix'>('upload');
   const [processingProgress, setProcessingProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
@@ -231,6 +237,9 @@ export default function ProjectDetailPage() {
   const [assetSearch, setAssetSearch] = useState('');
   const [demucsModel, setDemucsModel] = useState<DemucsModel>('htdemucs');
   const [stemMode, setStemMode] = useState<StemMode>('four_stem');
+  const [denoiseOutputMode, setDenoiseOutputMode] = useState<'new' | 'overwrite'>('new');
+  const [denoiseStationary, setDenoiseStationary] = useState(true);
+  const [denoiseNoiseThreshold, setDenoiseNoiseThreshold] = useState(1.5);
   const [separator, setSeparator] = useState<'demucs' | 'spleeter'>('demucs');
   const [masterVolume, setMasterVolume] = useState(80);
   const [trackLevels, setTrackLevels] = useState<Record<string, number>>({});
@@ -238,6 +247,19 @@ export default function ProjectDetailPage() {
   const [masterRms, setMasterRms] = useState(0);
   const [masterPhase, setMasterPhase] = useState(0);
   const [showSpectrum, setShowSpectrum] = useState(false);
+  const [showMixerGuide, setShowMixerGuide] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('audioforge_showMixerGuide');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('audioforge_showMixerGuide', String(showMixerGuide));
+    }
+  }, [showMixerGuide]);
   const [spectrumData, setSpectrumData] = useState<number[]>([]);
   const [loudnessShortTerm, setLoudnessShortTerm] = useState(-Infinity);
   const [loudnessHistory, setLoudnessHistory] = useState<number[]>([]);
@@ -261,10 +283,10 @@ export default function ProjectDetailPage() {
   const durationRef = useRef<number>(180);
   
   const audioContextRef = useRef<AudioContext | null>(null);
-  const oscillatorsRef = useRef<Map<string, { osc: OscillatorNode; gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode }>>(new Map());
+  const oscillatorsRef = useRef<Map<string, { osc: OscillatorNode; gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode }>>(new Map());
   const audioSourceRef = useRef<Map<string, AudioBufferSourceNode>>(new Map());
   const audioBufferRef = useRef<Map<string, AudioBuffer>>(new Map());
-  const audioNodesRef = useRef<Map<string, { gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode }>>(new Map());
+  const audioNodesRef = useRef<Map<string, { gain: GainNode; panner: StereoPannerNode; analyser: AnalyserNode; convolver?: ConvolverNode; delay?: DelayNode; delayFeedback?: GainNode; reverbGain?: GainNode }>>(new Map());
   const masterGainRef = useRef<GainNode | null>(null);
   const masterAnalyserRef = useRef<AnalyserNode | null>(null);
   const meterAnimationRef = useRef<number | null>(null);
@@ -645,6 +667,55 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleDenoiseSelected = async () => {
+    if (!selectedAsset) return;
+    
+    setIsProcessing(true);
+    setProcessingProgress(0);
+    setProcessingStatus('Starting noise reduction...');
+
+    try {
+      const job = await api.createDenoiseJob(projectId, [selectedAsset.id], {
+        output_mode: denoiseOutputMode,
+        stationary: denoiseStationary,
+        noise_threshold: denoiseNoiseThreshold,
+      });
+      
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await api.getJobStatus(job.id);
+          setProcessingProgress(status.progress);
+          setProcessingStatus(status.result?.message || `Processing: ${status.progress}%`);
+          
+          if (status.status === 'succeeded') {
+            clearInterval(pollInterval);
+            setProcessingProgress(100);
+            setProcessingStatus('Noise reduction complete!');
+            
+            const refreshedAssets = await api.getProjectAssets(projectId);
+            hydrateProjectAssets(refreshedAssets);
+            
+            setTimeout(() => {
+              setIsProcessing(false);
+              setActiveTab('upload');
+            }, 1000);
+          } else if (status.status === 'failed') {
+            clearInterval(pollInterval);
+            setProcessingStatus(`Error: ${status.error}`);
+            setIsProcessing(false);
+          }
+        } catch (error) {
+          console.error('Polling error:', error);
+        }
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Failed to start denoise:', error);
+      setProcessingStatus('Failed to start noise reduction');
+      setIsProcessing(false);
+    }
+  };
+
   const initializeStems = (stems: Stem[]) => {
     const timelineStems: TimelineStem[] = stems.map(stem => {
       const config = STEM_CONFIGS[stem.stem_type as keyof typeof STEM_CONFIGS] || STEM_CONFIGS.other;
@@ -778,6 +849,11 @@ export default function ProjectDetailPage() {
   const handleSeparateAsset = (asset: Asset) => {
     setSelectedAsset(asset);
     setActiveTab('separate');
+  };
+
+  const handleDenoiseAsset = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setActiveTab('denoise');
   };
 
   const startRenamingAsset = (asset: Asset) => {
@@ -978,17 +1054,14 @@ export default function ProjectDetailPage() {
       
       // Calculate actual max duration from loaded audio buffers
       let maxBufferDuration = 0;
-      console.log('=== Loading audio buffers ===');
       timelineStems.forEach(stem => {
         if (stem.assetId) {
           const buffer = audioBufferRef.current.get(stem.assetId);
-          console.log(`Stem: ${stem.id}, AssetId: ${stem.assetId}, Duration: ${buffer?.duration || 'NOT LOADED'}`);
           if (buffer && buffer.duration > maxBufferDuration) {
             maxBufferDuration = buffer.duration;
           }
         }
       });
-      console.log(`Max duration: ${maxBufferDuration}`);
       if (maxBufferDuration > 0) {
         setTotalDuration(maxBufferDuration);
         durationRef.current = maxBufferDuration;
@@ -1014,14 +1087,46 @@ export default function ProjectDetailPage() {
             const gainNode = ctx.createGain();
             const pannerNode = ctx.createStereoPanner();
             const analyserNode = ctx.createAnalyser();
+            const convolver = ctx.createConvolver();
+            const delay = ctx.createDelay(1.0);
+            const delayFeedback = ctx.createGain();
+            const reverbGain = ctx.createGain();
+            
+            // Create impulse response for reverb
+            const impulseLength = ctx.sampleRate * 1.5;
+            const impulse = ctx.createBuffer(2, impulseLength, ctx.sampleRate);
+            for (let channel = 0; channel < 2; channel++) {
+              const channelData = impulse.getChannelData(channel);
+              for (let i = 0; i < impulseLength; i++) {
+                channelData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.5));
+              }
+            }
+            convolver.buffer = impulse;
+            reverbGain.gain.value = stem.reverb > 0 ? stem.reverb / 100 : 1;
+            
+            delay.delayTime.value = stem.delay / 100 * 0.5;
+            delayFeedback.gain.value = 0.3;
+            delay.connect(delayFeedback);
+            delayFeedback.connect(delay);
             
             gainNode.gain.value = (stem.volume / 100) * 0.3;
             pannerNode.pan.value = stem.pan / 100;
             analyserNode.fftSize = 256;
             
-            source.connect(gainNode);
-            gainNode.connect(pannerNode);
-            pannerNode.connect(analyserNode);
+            // Route: use convolver only when reverb > 0
+            if (stem.reverb > 0) {
+              source.connect(gainNode);
+              gainNode.connect(pannerNode);
+              pannerNode.connect(convolver);
+              convolver.connect(reverbGain);
+              reverbGain.connect(delay);
+              delay.connect(analyserNode);
+            } else {
+              source.connect(gainNode);
+              gainNode.connect(pannerNode);
+              pannerNode.connect(delay);
+              delay.connect(analyserNode);
+            }
             analyserNode.connect(masterGainRef.current ?? ctx.destination);
             
             // Start from resume position (offset is in seconds)
@@ -1029,7 +1134,7 @@ export default function ProjectDetailPage() {
             source.start(0, offsetSeconds);
             
             audioSourceRef.current.set(stem.assetId, source);
-            audioNodesRef.current.set(stem.assetId, { gain: gainNode, panner: pannerNode, analyser: analyserNode });
+            audioNodesRef.current.set(stem.assetId, { gain: gainNode, panner: pannerNode, analyser: analyserNode, convolver, delay, delayFeedback, reverbGain });
           }
         } else {
           // Oscillator fallback
@@ -1037,6 +1142,27 @@ export default function ProjectDetailPage() {
           const gain = ctx.createGain();
           const panner = ctx.createStereoPanner();
           const analyser = ctx.createAnalyser();
+          const convolver = ctx.createConvolver();
+          const delay = ctx.createDelay(1.0);
+          const delayFeedback = ctx.createGain();
+          const reverbGain = ctx.createGain();
+          
+          // Create impulse response for reverb
+          const impulseLength = ctx.sampleRate * 1.5;
+          const impulse = ctx.createBuffer(2, impulseLength, ctx.sampleRate);
+          for (let channel = 0; channel < 2; channel++) {
+            const channelData = impulse.getChannelData(channel);
+            for (let i = 0; i < impulseLength; i++) {
+              channelData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.5));
+            }
+          }
+          convolver.buffer = impulse;
+          reverbGain.gain.value = stem.reverb > 0 ? stem.reverb / 100 : 1;
+          
+          delay.delayTime.value = stem.delay / 100 * 0.5;
+          delayFeedback.gain.value = 0.3;
+          delay.connect(delayFeedback);
+          delayFeedback.connect(delay);
           
           osc.type = stem.sourceType === 'drums' ? 'square' : stem.sourceType === 'bass' ? 'sawtooth' : 'sine';
           osc.frequency.value = stem.frequency || 440;
@@ -1044,13 +1170,23 @@ export default function ProjectDetailPage() {
           panner.pan.value = stem.pan / 100;
           analyser.fftSize = 256;
           
-          osc.connect(gain);
-          gain.connect(panner);
-          panner.connect(analyser);
+          if (stem.reverb > 0) {
+            osc.connect(gain);
+            gain.connect(panner);
+            panner.connect(convolver);
+            convolver.connect(reverbGain);
+            reverbGain.connect(delay);
+            delay.connect(analyser);
+          } else {
+            osc.connect(gain);
+            gain.connect(panner);
+            panner.connect(delay);
+            delay.connect(analyser);
+          }
           analyser.connect(masterGainRef.current ?? ctx.destination);
           osc.start(0);
           
-          oscillatorsRef.current.set(stem.id, { osc, gain, panner, analyser });
+          oscillatorsRef.current.set(stem.id, { osc, gain, panner, analyser, convolver, delay, reverbGain });
         }
       });
       
@@ -1384,6 +1520,45 @@ export default function ProjectDetailPage() {
     }));
   };
 
+  const handleReverbChange = (stemId: string, reverb: number) => {
+    setTimelineStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s;
+
+      // Update oscillator nodes
+      const nodes = oscillatorsRef.current.get(stemId);
+      if (nodes?.reverbGain) {
+        nodes.reverbGain.gain.value = reverb / 100;
+      }
+
+      // Update real audio nodes
+      const audioNodes = s.assetId ? audioNodesRef.current.get(s.assetId) : undefined;
+      if (audioNodes?.reverbGain) {
+        audioNodes.reverbGain.gain.value = reverb / 100;
+      }
+
+      return { ...s, reverb };
+    }));
+  };
+
+  const handleDelayChange = (stemId: string, delay: number) => {
+    setTimelineStems(prev => prev.map(s => {
+      if (s.id !== stemId) return s;
+
+      // Update delay node
+      const nodes = oscillatorsRef.current.get(stemId);
+      if (nodes && nodes.delay) {
+        nodes.delay.delayTime.value = delay / 100 * 0.5; // 0 to 0.5 seconds
+      }
+
+      const audioNodes = s.assetId ? audioNodesRef.current.get(s.assetId) : undefined;
+      if (audioNodes && audioNodes.delay) {
+        audioNodes.delay.delayTime.value = delay / 100 * 0.5;
+      }
+
+      return { ...s, delay };
+    }));
+  };
+
   const toggleStemSelection = (stemId: string) => {
     setTimelineStems(prev => {
       const stem = prev.find(s => s.id === stemId);
@@ -1507,11 +1682,11 @@ export default function ProjectDetailPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-4">
               <button 
-                onClick={() => router.push('/projects')}
+                onClick={() => setActiveTab('upload')}
                 className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-gray-600 transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:text-white"
               >
                 <span>←</span>
-                <span className="text-sm">Projects</span>
+                <span className="text-sm">{activeTab === 'upload' ? 'Projects' : 'Overview'}</span>
               </button>
               <div className="flex items-center gap-3">
                 <button
@@ -1537,6 +1712,13 @@ export default function ProjectDetailPage() {
                 disabled={originalAssets.length === 0}
               >
                 Separate
+              </button>
+              <button 
+                onClick={() => originalAssets.length > 0 && setActiveTab('denoise')}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'denoise' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'} ${originalAssets.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}
+                disabled={originalAssets.length === 0}
+              >
+                Denoise
               </button>
               <button 
                 onClick={() => isMixed && setActiveTab('mix')}
@@ -1607,6 +1789,68 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Quick Actions */}
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => {
+                  const selected = originalAssets.find(a => selectedMixerAssetIds.includes(a.id));
+                  if (selected) {
+                    setSelectedAsset(selected);
+                    setActiveTab('separate');
+                  } else if (originalAssets.length === 1) {
+                    setSelectedAsset(originalAssets[0]);
+                    setActiveTab('separate');
+                  }
+                }}
+                disabled={originalAssets.length === 0 || (selectedMixerAssetIds.filter(id => originalAssets.some(a => a.id === id)).length !== 1 && originalAssets.length > 1)}
+                className="group relative overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/80 p-4 text-left transition hover:bg-violet-100 dark:border-violet-900/40 dark:bg-violet-950/30 dark:hover:bg-violet-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-white p-2 text-violet-600 shadow-sm transition group-hover:scale-110 dark:bg-violet-900/60 dark:text-violet-200">
+                    <Wand2 size={20} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-violet-700 dark:text-violet-200">Separate</p>
+                    <p className="text-xs text-violet-600 dark:text-violet-300">Split audio into stems</p>
+                  </div>
+                </div>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-10 group-hover:opacity-20">
+                  <Wand2 size={48} />
+                </div>
+              </button>
+              
+              <button
+                onClick={() => {
+                  const selected = originalAssets.find(a => selectedMixerAssetIds.includes(a.id));
+                  if (selected) {
+                    setSelectedAsset(selected);
+                    setActiveTab('denoise');
+                  } else if (originalAssets.length === 1) {
+                    setSelectedAsset(originalAssets[0]);
+                    setActiveTab('denoise');
+                  }
+                }}
+                disabled={originalAssets.length === 0 || (selectedMixerAssetIds.filter(id => originalAssets.some(a => a.id === id)).length !== 1 && originalAssets.length > 1)}
+                className="group relative overflow-hidden rounded-2xl border border-cyan-100 bg-cyan-50/80 p-4 text-left transition hover:bg-cyan-100 dark:border-cyan-900/40 dark:bg-cyan-950/30 dark:hover:bg-cyan-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-white p-2 text-cyan-600 shadow-sm transition group-hover:scale-110 dark:bg-cyan-900/60 dark:text-cyan-200">
+                    <Waves size={20} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-cyan-700 dark:text-cyan-200">Denoise</p>
+                    <p className="text-xs text-cyan-600 dark:text-cyan-300">Reduce background noise</p>
+                  </div>
+                </div>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-10 group-hover:opacity-20">
+                  <Waves size={48} />
+                </div>
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Select one asset in the list to activate Separate or Denoise
+            </p>
           </div>
         </section>
         {/* Upload Tab */}
@@ -1812,13 +2056,22 @@ export default function ProjectDetailPage() {
                           <Music4 size={16} />
                         </button>
                         {asset.type === 'original' && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleSeparateAsset(asset); }}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-white transition hover:bg-purple-700"
-                            title="Separate"
-                          >
-                            <Wand2 size={16} />
-                          </button>
+                          <>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handleDenoiseAsset(asset); }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-600 transition hover:bg-cyan-100 dark:border-cyan-900/60 dark:bg-cyan-950/30 dark:text-cyan-300 dark:hover:bg-cyan-950/50"
+                              title="Reduce Noise"
+                            >
+                              <Waves size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleSeparateAsset(asset); }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-white transition hover:bg-purple-700"
+                              title="Separate"
+                            >
+                              <Wand2 size={16} />
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={(e) => { e.stopPropagation(); void handleDeleteAsset(asset.id); }}
@@ -2146,67 +2399,242 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
+        {/* Denoise Tab */}
+        {activeTab === 'denoise' && (
+          <div className="mx-auto max-w-4xl">
+            {isProcessing ? (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm p-8 text-center">
+                <div className="w-24 h-24 bg-cyan-100 dark:bg-cyan-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                  <svg className="w-16 h-16 animate-spin text-cyan-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold mb-2 dark:text-white">Reducing Noise...</h2>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">{processingStatus}</p>
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-6">
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    <span className="font-semibold">Please wait!</span> Noise reduction is processing your audio.
+                  </p>
+                </div>
+                <div className="max-w-md mx-auto">
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+                    <div 
+                      className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all"
+                      style={{ width: `${Math.min(processingProgress, 100)}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{Math.round(Math.min(processingProgress, 100))}%</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm p-6">
+                <div className="mb-5">
+                  <h2 className="text-lg font-semibold dark:text-white">Noise Reduction</h2>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Select an audio file to reduce background noise. Uses spectral gating for stationary noise reduction.
+                  </p>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Select Audio File</h3>
+                  <div className="space-y-2">
+                    {assets.filter(a => a.type === 'original').map((asset) => (
+                      <div 
+                        key={asset.id}
+                        onClick={() => setSelectedAsset(asset)}
+                        className={`p-4 border dark:border-gray-600 rounded-lg cursor-pointer dark:bg-gray-700 ${selectedAsset?.id === asset.id ? 'border-cyan-500 dark:border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20' : ''}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">🎵</span>
+                            <div>
+                              <p className="font-medium dark:text-white">{getAssetDisplayName(asset)}</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {asset.duration ? formatTime(asset.duration) : 'Unknown length'} · Added {formatAssetDate(asset.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          {selectedAsset?.id === asset.id && (
+                            <CheckSquare size={20} className="text-cyan-600" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Output Options */}
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Output Options</h3>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="outputMode"
+                        value="new"
+                        checked={denoiseOutputMode === 'new'}
+                        onChange={() => setDenoiseOutputMode('new')}
+                        className="w-4 h-4 text-cyan-600"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Create new asset</span>
+                        <p className="text-xs text-gray-500">Preserves original, creates denoised version with &quot;(Denoised)&quot; suffix</p>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="outputMode"
+                        value="overwrite"
+                        checked={denoiseOutputMode === 'overwrite'}
+                        onChange={() => setDenoiseOutputMode('overwrite')}
+                        className="w-4 h-4 text-cyan-600"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Overwrite original</span>
+                        <p className="text-xs text-gray-500">Replaces the original audio file with the denoised version</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Parameters */}
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Parameters</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <span>Noise Type</span>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{denoiseStationary ? 'Stationary' : 'Non-stationary'}</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setDenoiseStationary(true)}
+                          className={`flex-1 py-2 px-3 text-xs rounded-lg border transition ${
+                            denoiseStationary 
+                              ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-900/30 dark:text-cyan-300'
+                              : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                          }`}
+                        >
+                          Stationary
+                        </button>
+                        <button
+                          onClick={() => setDenoiseStationary(false)}
+                          className={`flex-1 py-2 px-3 text-xs rounded-lg border transition ${
+                            !denoiseStationary 
+                              ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-900/30 dark:text-cyan-300'
+                              : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                          }`}
+                        >
+                          Non-stationary
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {denoiseStationary 
+                          ? 'Best for consistent background noise (AC hum, fan noise)'
+                          : 'Better for varying noise levels (traffic, moving sources)'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <span>Noise Threshold</span>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{denoiseNoiseThreshold.toFixed(1)} std dev</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="3"
+                        step="0.1"
+                        value={denoiseNoiseThreshold}
+                        onChange={(e) => setDenoiseNoiseThreshold(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-cyan-600"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>More aggressive</span>
+                        <span>More subtle</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleDenoiseSelected}
+                  disabled={!selectedAsset}
+                  className="mt-6 w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold text-lg hover:from-cyan-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  🌊 Reduce Noise
+                </button>
+                {!selectedAsset && (
+                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Select an audio file above to start noise reduction
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Mixer Tab */}
         {activeTab === 'mix' && timelineStems.length > 0 && (
           <div className="max-w-full">
             {/* Top Meters Bar */}
-            <div className="mb-3 rounded-xl border border-white/70 bg-white/85 p-4 shadow backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
-              <div className="flex flex-wrap items-center gap-6">
+            <div className="mb-2 rounded-xl border border-white/70 bg-white/85 p-3 shadow backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
+              <div className="flex flex-wrap items-center gap-4">
                 {/* Play button + time */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2" title="Click to play/pause. Time shows current position / total duration">
                   <button
                     onClick={togglePlay}
                     disabled={isLoadingAudio}
-                    className={`w-12 h-12 rounded-full flex items-center justify-center transition shadow ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition shadow ${
                       isLoadingAudio 
                         ? 'bg-gray-400 cursor-not-allowed' 
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
+                    title={isPlaying ? 'Pause playback' : 'Start playback'}
                   >
                     {isLoadingAudio ? (
-                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
                     ) : isPlaying ? (
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <rect x="6" y="4" width="4" height="16" />
                         <rect x="14" y="4" width="4" height="16" />
                       </svg>
                     ) : (
-                      <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                         <polygon points="5,3 19,12 5,21" />
                       </svg>
                     )}
                   </button>
-                  <div>
-                    <span className="text-xl font-mono font-bold dark:text-white">
-                      {formatTime(currentTime)}
-                    </span>
-                    <span className="text-lg font-mono text-gray-400"> / {formatTime(totalDuration)}</span>
-                  </div>
+                  <span className="text-lg font-mono font-bold dark:text-white">
+                    {formatTime(currentTime)}
+                  </span>
+                  <span className="text-lg font-mono text-gray-400">/ {formatTime(totalDuration)}</span>
                 </div>
 
                 {/* Master Volume */}
-                <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2" title="Master Volume: Controls overall loudness of all tracks">
                   <Gauge size={16} className="text-gray-500" />
-                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Master</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400" title="Master Volume: Controls overall output loudness">M</span>
                   <input
                     type="range"
                     min="0"
                     max="100"
                     value={masterVolume}
                     onChange={(e) => setMasterVolume(parseInt(e.target.value))}
-                    className="w-28 accent-sky-600"
+                    className="w-24 accent-sky-600"
                   />
                   <span className="text-sm font-medium text-gray-600 dark:text-gray-300 w-10">{masterVolume}%</span>
                 </div>
 
                 {/* Master Meters - Peak + RMS */}
-                <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
                   <div className="text-center">
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Peak</div>
-                    <div className="w-20 h-6 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title={`Peak: ${Math.round(masterLevel * 100)}%`}>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1" title="Peak: The loudest instantaneous moment. Watch to avoid distortion!">Peak</div>
+                    <div className="w-16 h-5 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title="Peak: The loudest instantaneous moment—might clip if too high!">
                       <div
                         className={`absolute inset-y-0 left-0 rounded transition-all ${
                           masterLevel > 0.82 ? 'bg-red-500' : masterLevel > 0.55 ? 'bg-amber-500' : 'bg-emerald-500'
@@ -2217,8 +2645,8 @@ export default function ProjectDetailPage() {
                     <div className="text-[10px] text-gray-500 mt-1">{Math.round(masterLevel * 100)}%</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">RMS</div>
-                    <div className="w-20 h-6 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1" title="RMS: The average sustained loudness—how it actually sounds to your ears">RMS</div>
+                    <div className="w-16 h-5 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title="RMS: Average loudness—how it actually sounds">
                       <div
                         className="absolute inset-y-0 left-0 bg-sky-500/80 rounded transition-all"
                         style={{ width: `${masterRms < 0.02 ? 0 : Math.max(4, masterRms * 100)}%` }}
@@ -2229,10 +2657,10 @@ export default function ProjectDetailPage() {
                 </div>
 
                 {/* Phase Correlation */}
-                <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
                   <div className="text-center">
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Phase</div>
-                    <div className="w-24 h-6 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title={`Phase: ${(masterPhase * 100).toFixed(0)}`}>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1" title="Phase: Stereo correlation. +100 = perfect mono. Around +50 is ideal. Negative can cause cancellation!">Phase</div>
+                    <div className="w-20 h-5 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title="Phase: Stereo correlation. +100 = mono, -100 = out of phase (cancellaton risk)">
                       <div className="absolute inset-0 flex items-center">
                         <div className="w-full h-0.5 bg-gray-400" />
                       </div>
@@ -2254,10 +2682,10 @@ export default function ProjectDetailPage() {
                 </div>
 
                 {/* LUFS Meter */}
-                <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
                   <div className="text-center">
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">LUFS</div>
-                    <div className="w-28 h-6 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title={`Short-term: ${loudnessShortTerm > -70 ? loudnessShortTerm.toFixed(1) : '-∞'} LUFS`}>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1" title="LUFS: Loudness units—how streaming services measure. -14 LUFS is Spotify target.">LUFS</div>
+                    <div className="w-20 h-5 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden relative" title="LUFS: -14 is Spotify target. -14 to -16 is the sweet spot.">
                       <div
                         className="absolute inset-y-0 left-0 rounded transition-all bg-sky-500"
                         style={{ width: `${loudnessShortTerm > -70 ? Math.max(4, ((loudnessShortTerm + 70) / 70) * 100) : 0}%` }}
@@ -2268,7 +2696,7 @@ export default function ProjectDetailPage() {
                     </div>
                   </div>
                   {/* LUFS History */}
-                  <div className="w-24 h-8 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                  <div className="w-20 h-7 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden">
                     <div className="h-full flex items-end gap-[1px] px-[2px] py-[2px]">
                       {loudnessHistory.length > 0 ? (
                         loudnessHistory.map((val, i) => (
@@ -2288,36 +2716,49 @@ export default function ProjectDetailPage() {
                   </div>
                 </div>
 
+                {/* Spectrum Analyzer Toggle */}
+                <button
+                  onClick={() => setShowSpectrum(!showSpectrum)}
+                  className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition ${
+                    showSpectrum 
+                      ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                  }`}
+                >
+                  <AudioWaveform size={12} />
+                  Spectrum
+                </button>
+
                 <div className="flex-1"></div>
 
                 {/* Action buttons */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <button
                     onClick={handleResetMixer}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                    className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                   >
-                    <RotateCcw size={12} />
+                    <RotateCcw size={10} />
                     Reset
                   </button>
                   <button
                     onClick={handleUnmuteAll}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                    className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                   >
-                    <Volume2 size={12} />
+                    <Volume2 size={10} />
                     Unmute
                   </button>
                   <button
                     onClick={handleClearSolo}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                    className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 transition hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                   >
-                    <Headphones size={12} />
+                    <Headphones size={10} />
                     Clear Solo
                   </button>
                   <button
                     onClick={() => setShowSnapshots(!showSnapshots)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-700 transition hover:bg-purple-100 dark:border-purple-900/30 dark:bg-purple-900/20 dark:text-purple-300"
+                    className="inline-flex items-center gap-1 rounded border border-purple-200 bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 transition hover:bg-purple-100 dark:border-purple-900/30 dark:bg-purple-900/20 dark:text-purple-300"
                   >
-                    <History size={12} />
+                    <History size={10} />
                     Snapshots ({snapshots.length})
                   </button>
                 </div>
@@ -2325,28 +2766,26 @@ export default function ProjectDetailPage() {
 
               {/* Spectrum Analyzer */}
               {showSpectrum && (
-                <div className="mt-4 pt-4 border-t dark:border-gray-700">
-                  <div className="flex items-center gap-4">
+                <div className="mt-3 pt-3 border-t dark:border-gray-700">
+                  <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
-                      <AudioWaveform size={16} className="text-sky-500" />
+                      <AudioWaveform size={14} className="text-sky-500" />
                       <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Spectrum</span>
                     </div>
-                    <div className="flex-1 h-16 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-end px-2 gap-[2px]">
+                    <div className="flex-1 h-14 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-end px-2 gap-[2px]">
                       {spectrumData.length > 0 ? (
                         spectrumData.map((value, i) => (
                           <div
                             key={i}
                             className="flex-1 rounded-t transition-all"
                             style={{
-                              height: `${Math.max(4, value * 100)}%`,
-                              backgroundColor: value > 0.7 ? '#ef4444' : value > 0.4 ? '#f59e0b' : '#22c55e',
+                              height: `${Math.max(4, (value / 255) * 100)}%`,
+                              backgroundColor: `hsl(${180 - (value / 255) * 60}, 70%, 50%)`,
                             }}
                           />
                         ))
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-xs text-gray-400">Play audio to see spectrum</span>
-                        </div>
+                        <div className="w-full h-full" />
                       )}
                     </div>
                     <button
@@ -2358,85 +2797,14 @@ export default function ProjectDetailPage() {
                   </div>
                 </div>
               )}
-
-              {/* Spectrum toggle button when hidden */}
-              {!showSpectrum && (
-                <button
-                  onClick={() => setShowSpectrum(!showSpectrum)}
-                  className="mt-3 inline-flex items-center gap-2 text-xs text-sky-500 hover:text-sky-600"
-                >
-                  <AudioWaveform size={14} />
-                  Show Spectrum Analyzer
-                </button>
-              )}
-
-              {/* Snapshots Panel */}
-              {showSnapshots && (
-                <div className="mt-4 pt-4 border-t dark:border-gray-700">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Save Current Mix</span>
-                  </div>
-                  <div className="flex gap-2 mb-3">
-                    <input
-                      type="text"
-                      value={snapshotName}
-                      onChange={(e) => setSnapshotName(e.target.value)}
-                      placeholder="Snapshot name..."
-                      className="flex-1 text-xs px-2 py-1.5 border rounded dark:bg-gray-800 dark:border-gray-600"
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleSaveSnapshot(); }}
-                    />
-                    <input
-                      type="text"
-                      value={snapshotDesc}
-                      onChange={(e) => setSnapshotDesc(e.target.value)}
-                      placeholder="Description (optional)"
-                      className="flex-1 text-xs px-2 py-1.5 border rounded dark:bg-gray-800 dark:border-gray-600"
-                    />
-                    <button
-                      onClick={handleSaveSnapshot}
-                      disabled={!snapshotName.trim()}
-                      className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded hover:bg-purple-600 disabled:opacity-50"
-                    >
-                      Save
-                    </button>
-                  </div>
-                  {snapshots.length > 0 ? (
-                    <div className="space-y-1">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Saved Snapshots</span>
-                      {snapshots.map((snap) => (
-                        <div key={snap.id} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded border">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium truncate">{snap.name}</div>
-                            {snap.description && <div className="text-[10px] text-gray-500 truncate">{snap.description}</div>}
-                            <div className="text-[9px] text-gray-400">{new Date(snap.created_at).toLocaleString()}</div>
-                          </div>
-                          <button
-                            onClick={() => handleLoadSnapshot(snap)}
-                            className="px-2 py-1 text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded hover:bg-blue-200"
-                          >
-                            Load
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSnapshot(snap.id)}
-                            className="p-1 text-red-500 hover:text-red-600"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-xs text-gray-400 text-center py-2">No snapshots saved yet</div>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Timeline with Stems */}
             <div className="rounded-xl border bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
               {/* Time ruler */}
               <div className="flex border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                <div className="w-44 flex-shrink-0 p-1.5 border-r dark:border-gray-700 flex items-center gap-1">
+                <div className="w-10 flex-shrink-0 border-r dark:border-gray-700"></div>
+                <div className="w-56 flex-shrink-0 p-1.5 border-r dark:border-gray-700 flex items-center gap-1">
                   <button
                     onClick={handleAddMarker}
                     className={`p-1 rounded ${isAddingMarker ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'text-gray-400 hover:text-amber-500'}`}
@@ -2472,7 +2840,7 @@ export default function ProjectDetailPage() {
                       </button>
                     </>
                   )}
-                  <span className="text-[9px] text-gray-400">{markers.length} markers</span>
+                  <span className="text-[9px] text-gray-400">{markers.length}</span>
                 </div>
                 <div className="flex-1 p-1 relative">
                   {/* Time markers */}
@@ -2575,13 +2943,12 @@ export default function ProjectDetailPage() {
                         />
                       </div>
 
-                      {/* Stem controls */}
-                      <div className="w-36 flex-shrink-0 p-1.5 bg-white dark:bg-gray-800 border-r dark:border-gray-700">
+                      {/* Stem controls - name, mute, solo, volume, pan, level */}
+                      <div className="w-56 flex-shrink-0 p-1.5 bg-white dark:bg-gray-800 border-r dark:border-gray-700">
+                        {/* Icon, name, mute, solo on same row */}
                         <div className="flex items-center gap-1.5 mb-1">
                           <span className="text-sm">{stem.icon}</span>
                           <span className={`font-medium text-xs ${stem.color}`}>{stem.name}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => toggleMute(stem.id)}
                             className={`w-5 h-5 rounded flex items-center justify-center transition ${
@@ -2600,30 +2967,11 @@ export default function ProjectDetailPage() {
                           >
                             <Headphones size={10} />
                           </button>
-                          <div className="flex-1"></div>
-                          <span className="text-[9px] text-gray-400">{stem.volume}%</span>
+                          <span className="text-[9px] text-gray-400 ml-auto">{stem.volume}%</span>
                         </div>
-                      </div>
-                      
-                      {/* Level meter + Volume/Pan */}
-                      <div className="flex-1 flex items-center gap-3 px-3">
-                        {/* Level meter */}
-                        <div className="w-24 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              (trackLevels[stem.id] ?? 0) > 0.82
-                                ? 'bg-red-500'
-                                : (trackLevels[stem.id] ?? 0) > 0.55
-                                  ? 'bg-amber-500'
-                                  : 'bg-emerald-500'
-                            }`}
-                            style={{ width: `${(trackLevels[stem.id] ?? 0) < 0.02 ? 0 : Math.max(4, (trackLevels[stem.id] ?? 0) * 100)}%` }}
-                          />
-                        </div>
-                        
                         {/* Volume slider */}
-                        <div className="flex items-center gap-1 flex-1">
-                          <span className="text-[9px] text-gray-400">V</span>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-[9px] text-gray-400" title="Volume: Adjust track loudness (0-100)">V</span>
                           <input
                             type="range"
                             min="0"
@@ -2631,53 +2979,151 @@ export default function ProjectDetailPage() {
                             value={stem.volume}
                             onChange={(e) => handleVolumeChange(stem.id, parseInt(e.target.value))}
                             className="flex-1 h-1 accent-blue-600 cursor-pointer"
+                            title={`Volume: ${stem.volume}%`}
                           />
                         </div>
-                        
                         {/* Pan slider */}
-                        <div className="flex items-center gap-1 w-20">
-                          <span className="text-[9px] text-gray-400">P</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-gray-400" title="Pan: Move sound left (-100) or right (+100), 0 is center">P</span>
                           <input
                             type="range"
                             min="-100"
                             max="100"
                             value={stem.pan}
                             onChange={(e) => handlePanChange(stem.id, parseInt(e.target.value))}
-                            className="w-14 h-1 accent-blue-600 cursor-pointer"
+                            className="flex-1 h-1 accent-blue-600 cursor-pointer"
                           />
                         </div>
+                        {/* Reverb slider */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-gray-400" title="Reverb: Add spaciousness/ambience (0-100%)">R</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={stem.reverb}
+                            onChange={(e) => handleReverbChange(stem.id, parseInt(e.target.value))}
+                            className="flex-1 h-1 accent-purple-600 cursor-pointer"
+                          />
+                        </div>
+                        {/* Delay slider */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-gray-400" title="Delay: Add echo effect (0-100%)">D</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={stem.delay}
+                            onChange={(e) => handleDelayChange(stem.id, parseInt(e.target.value))}
+                            className="flex-1 h-1 accent-amber-600 cursor-pointer"
+                          />
+                        </div>
+                        {/* Level meter */}
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <div className="w-full h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden" title={`Level: ${Math.round((trackLevels[stem.id] ?? 0) * 100)}%`}>
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                (trackLevels[stem.id] ?? 0) > 0.82
+                                  ? 'bg-red-500'
+                                  : (trackLevels[stem.id] ?? 0) > 0.55
+                                    ? 'bg-amber-500'
+                                    : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${(trackLevels[stem.id] ?? 0) < 0.02 ? 0 : Math.max(4, (trackLevels[stem.id] ?? 0) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
                       </div>
-                  
-                  {/* Waveform area */}
-                  <div 
-                    className="flex-1 relative min-h-[60px] cursor-pointer"
-                    onMouseDown={handleTimelineMouseDown}
-                    onMouseMove={handleTimelineMouseMove}
-                    onMouseUp={handleTimelineMouseUp}
-                    onMouseLeave={handleTimelineMouseUp}
-                  >
-                    <Waveform 
-                      assetId={stem.assetId}
-                      color={stem.color.includes('purple') ? '#a855f7' : stem.color.includes('red') ? '#ef4444' : stem.color.includes('blue') ? '#3b82f6' : '#22c55e'}
-                      currentTime={currentTime}
-                      isPlaying={isPlaying && stem.isSelected && !stem.muted}
-                      stemType={stem.sourceType}
-                      audioDuration={durationRef.current}
-                    />
-                    {/* Playhead */}
-                    <div 
-                      className={`absolute top-0 bottom-0 w-0.5 bg-red-500 z-10 cursor-grab ${isDragging ? 'cursor-grabbing' : ''}`}
-                      style={{ left: `${totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                   
+                      {/* Waveform area - only waveform in timeline */}
+                      <div 
+                        className="flex-1 relative min-h-[60px] cursor-pointer"
+                        ref={timelineRef}
+                      >
+                        <Waveform 
+                          assetId={stem.assetId}
+                          color={stem.color.includes('purple') ? '#a855f7' : stem.color.includes('red') ? '#ef4444' : stem.color.includes('blue') ? '#3b82f6' : '#22c55e'}
+                          currentTime={currentTime}
+                          isPlaying={isPlaying && stem.isSelected && !stem.muted}
+                          stemType={stem.sourceType}
+                          audioDuration={durationRef.current}
+                        />
+                        {/* Playhead */}
+                        <div 
+                          className={`absolute top-0 bottom-0 w-0.5 bg-red-500 z-10 cursor-grab ${isDragging ? 'cursor-grabbing' : ''}`}
+                          style={{ left: `${totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0}%` }}
+                          onMouseDown={handleTimelineMouseDown}
+                          onMouseMove={handleTimelineMouseMove}
+                          onMouseUp={handleTimelineMouseUp}
+                        />
+                      </div>
+                    </div>
+                  ))}
             </div>
           </div>
           )}
-      </div>
 
-      {showDeleteConfirm && (
+          {/* Mixer Guide - Collapsible */}
+          {activeTab === 'mix' && timelineStems.length > 0 && (
+            <div className="mt-2 rounded-xl border border-white/70 bg-white/85 shadow dark:border-gray-800 dark:bg-gray-900/80">
+              <button
+                onClick={() => {
+                  setShowMixerGuide(!showMixerGuide);
+                  localStorage.setItem('audioforge_showMixerGuide', String(!showMixerGuide));
+                }}
+                className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Mixer Guide
+                </span>
+                <ChevronDown 
+                  size={16} 
+                  className={`text-gray-400 transition-transform ${showMixerGuide ? 'rotate-180' : ''}`} 
+                />
+              </button>
+              
+              {showMixerGuide && (
+                <div className="px-4 pb-4 text-xs text-gray-600 dark:text-gray-400 space-y-3">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Understanding the Meters</p>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Peak</span>
+                      <p>The loudest instantaneous moment—the spike that might clip. Watch this to avoid distortion!</p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                      <span className="font-semibold text-sky-600 dark:text-sky-400">RMS</span>
+                      <p>The average sustained loudness—how it actually sounds to your ears.</p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                      <span className="font-semibold text-amber-600 dark:text-amber-400">Phase</span>
+                      <p>Stereo correlation. +100 = perfect mono (same in both speakers). Around +50 is ideal. Negative values can cause cancellation!</p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                      <span className="font-semibold text-purple-600 dark:text-purple-400">LUFS</span>
+                      <p>Loudness units—how streaming services measure loudness. -14 LUFS is the Spotify target. -14 to -16 is the sweet spot.</p>
+                    </div>
+                  </div>
+
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 pt-2">Meter Colors</p>
+                  <div className="flex gap-4 text-xs">
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded bg-emerald-500"></span> Green = Good level
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded bg-amber-500"></span> Amber = Getting loud
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded bg-red-500"></span> Red = Too loud! Turn down!
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-[24px] border border-white/70 bg-white/95 p-5 shadow-[0_28px_90px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/95">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Delete Project?</h3>

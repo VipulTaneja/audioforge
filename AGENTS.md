@@ -347,6 +347,7 @@ The mixer in the frontend provides real-time audio control:
 - **Master Output**: Provides overall output volume control and master metering
 - **Quick Actions**: Reset the mix, clear solo state, or unmute all tracks quickly
 - **Waveform**: Displays actual audio peaks from the backend `/api/v1/assets/{id}/waveform` endpoint
+- **Playhead (red line)**: Drag horizontally to seek to any position in the timeline
 
 All controls update audio in real-time without needing to restart playback.
 
