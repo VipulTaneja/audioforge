@@ -3114,11 +3114,11 @@ export default function ProjectDetailPage() {
                             )}
                           </div>
                         )}
-                        {/* Stereo Level meter */}
+                        {/* Stereo Level meter - always show */}
                         <div className="flex items-center justify-center mt-1">
                           <StereoMeter
-                            levelL={trackLevels[stem.id]?.l ?? 0}
-                            levelR={trackLevels[stem.id]?.r ?? 0}
+                            levelL={trackLevels[stem.id]?.l ?? 0.01}
+                            levelR={trackLevels[stem.id]?.r ?? 0.01}
                             height="sm"
                           />
                         </div>
