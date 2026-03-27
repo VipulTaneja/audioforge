@@ -150,6 +150,18 @@ def denoise_audio(
         
     except Exception as e:
         logger.error(f"Denoise failed for asset {input_asset_id}: {e}")
+        
+        retry_count = self.request.retries
+        max_retries = 3
+        
+        if retry_count < max_retries:
+            retry_delay = 2 ** retry_count
+            logger.info(f"Retrying denoise task {job_id} in {retry_delay}s (attempt {retry_count + 1}/{max_retries})")
+            try:
+                raise self.retry(exc=e, countdown=retry_delay, max_retries=max_retries)
+            except MaxRetriesExceededError:
+                pass
+        
         try:
             db.execute(
                 update(Job)

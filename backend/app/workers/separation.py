@@ -3,7 +3,7 @@ import tempfile
 import logging
 from pathlib import Path
 from celery import Task
-from celery.exceptions import SoftTimeLimitExceeded
+from celery.exceptions import SoftTimeLimitExceeded, MaxRetriesExceededError
 import soundfile as sf
 
 from app.workers.celery_app import celery_app
@@ -204,10 +204,34 @@ def separate_audio_demucs(
         raise
     except TimeoutError as e:
         logger.error(f"Job {job_id} failed: Demucs timeout - {e}")
+        
+        retry_count = self.request.retries
+        max_retries = 3
+        
+        if retry_count < max_retries:
+            retry_delay = 2 ** retry_count
+            logger.info(f"Retrying separation task {job_id} in {retry_delay}s (attempt {retry_count + 1}/{max_retries})")
+            try:
+                raise self.retry(exc=e, countdown=retry_delay, max_retries=max_retries)
+            except MaxRetriesExceededError:
+                pass
+        
         _update_job_failed(job_id, str(e))
         raise
     except Exception as e:
         logger.error(f"Job {job_id} failed: {e}")
+        
+        retry_count = self.request.retries
+        max_retries = 3
+        
+        if retry_count < max_retries:
+            retry_delay = 2 ** retry_count
+            logger.info(f"Retrying separation task {job_id} in {retry_delay}s (attempt {retry_count + 1}/{max_retries})")
+            try:
+                raise self.retry(exc=e, countdown=retry_delay, max_retries=max_retries)
+            except MaxRetriesExceededError:
+                pass
+        
         _update_job_failed(job_id, str(e))
         raise
 
@@ -692,6 +716,18 @@ def separate_audio_spleeter(
         raise
     except Exception as e:
         logger.error(f"Job {job_id} failed: {e}")
+        
+        retry_count = self.request.retries
+        max_retries = 3
+        
+        if retry_count < max_retries:
+            retry_delay = 2 ** retry_count
+            logger.info(f"Retrying separation task {job_id} in {retry_delay}s (attempt {retry_count + 1}/{max_retries})")
+            try:
+                raise self.retry(exc=e, countdown=retry_delay, max_retries=max_retries)
+            except MaxRetriesExceededError:
+                pass
+        
         _update_job_failed(job_id, str(e))
         raise
 
