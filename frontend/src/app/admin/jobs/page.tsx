@@ -151,7 +151,7 @@ export default function AdminJobsPage() {
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search by job, project name, ID, or type"
+                  placeholder="Search by job or project name"
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-sky-400 focus:bg-white dark:border-slate-700 dark:bg-slate-950 dark:focus:border-sky-500"
                 />
               </label>
@@ -215,7 +215,6 @@ export default function AdminJobsPage() {
                           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                             {getProjectName(job.project_id)}
                           </p>
-                          <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{job.id}</p>
                         </div>
                         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusTone(job.status)}`}>
                           {job.status}

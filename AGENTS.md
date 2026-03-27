@@ -23,6 +23,13 @@ Follow this process for every GitHub issue:
 - Run build command (`npm run build` or `make`)
 - Run tests (`npm test` or `pytest`)
 - Iterate until tests pass
+- if test do not pass in 3 iteration, mark as test failed. 
+
+### If tests failed:
+1. Leave comments with deatils of changes you did and issue you faced and anything else that will be relevant to work on this in future.
+2. Add tag to the issue as help-wanted. 
+3. Summarize what you did and stop working further.
+
 
 ### If tests pass:
 1. Final linting check

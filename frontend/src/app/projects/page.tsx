@@ -29,13 +29,28 @@ export default function ProjectsPage() {
   const loadProjects = async () => {
     try {
       const backendProjects = await api.getProjects();
-      const mapped: LocalProject[] = backendProjects.map((project) => ({
-        ...project,
-        tracks: 0,
-        lastModified: formatBrowserDateTime(project.created_at, {
-          year: 'numeric',
-        }),
-      }));
+      const mapped: LocalProject[] = await Promise.all(
+        backendProjects.map(async (project) => {
+          try {
+            const assets = await api.getProjectAssets(project.id);
+            return {
+              ...project,
+              tracks: assets.length,
+              lastModified: formatBrowserDateTime(project.created_at, {
+                year: 'numeric',
+              }),
+            };
+          } catch {
+            return {
+              ...project,
+              tracks: 0,
+              lastModified: formatBrowserDateTime(project.created_at, {
+                year: 'numeric',
+              }),
+            };
+          }
+        })
+      );
       setProjects(mapped);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
     } catch {
@@ -80,8 +95,7 @@ export default function ProjectsPage() {
     }
 
     return projects.filter((project) =>
-      project.name.toLowerCase().includes(normalizedSearch) ||
-      project.id.toLowerCase().includes(normalizedSearch),
+      project.name.toLowerCase().includes(normalizedSearch)
     );
   }, [projects, search]);
 
@@ -150,7 +164,7 @@ export default function ProjectsPage() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by project name or ID"
+                placeholder="Search by project name"
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-sky-400 focus:bg-white dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-sky-500"
               />
             </label>
@@ -267,7 +281,6 @@ function ProjectCard({ project, onDelete }: { project: LocalProject; onDelete: (
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold text-slate-900 dark:text-white">{project.name}</p>
-            <p className="mt-1 font-mono text-xs text-slate-400 dark:text-slate-500">{project.id}</p>
           </div>
           <div className="flex items-center gap-2">
             <button

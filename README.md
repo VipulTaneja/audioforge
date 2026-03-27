@@ -416,6 +416,7 @@ To tail logs from all services running in the background:
 
 ```bash
 # Docker containers (postgres, redis, minio, keycloak)
+cd ~/src/test-opencode
 docker-compose logs -f
 
 # API server logs

@@ -2041,16 +2041,12 @@ export default function ProjectDetailPage() {
                   Project Overview
                 </p>
                 <h2 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white lg:text-3xl">
-                  {projectName || `Project #${projectId}`}
+                  {projectName || 'Project'}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
                   Manage originals, generated stems, and mixes from one workspace. Preview files, rename assets for clarity,
                   and move only the tracks you want into the mixer.
                 </p>
-              </div>
-              <div className="rounded-3xl border border-slate-200/80 bg-white/70 px-5 py-4 text-slate-700 shadow-sm backdrop-blur dark:border-slate-700/80 dark:bg-slate-900/55 dark:text-slate-200">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Project ID</p>
-                <p className="mt-2 font-mono text-sm text-slate-600 dark:text-slate-300">{projectId}</p>
               </div>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -3545,7 +3541,6 @@ export default function ProjectDetailPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-900 dark:text-white">{job.type}</p>
-                          <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{job.id}</p>
                         </div>
                         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusTone(job.status)}`}>
                           {job.status}
@@ -3591,7 +3586,7 @@ export default function ProjectDetailPage() {
           <div className="w-full max-w-sm rounded-[24px] border border-white/70 bg-white/95 p-5 shadow-[0_28px_90px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/95">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Delete Project?</h3>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              This will permanently delete &quot;{projectName || projectId}&quot; and all its assets and jobs. This action cannot be undone.
+              This will permanently delete &quot;{projectName || 'this project'}&quot; and all its assets and jobs. This action cannot be undone.
             </p>
             <div className="mt-5 flex justify-end gap-3">
               <button
