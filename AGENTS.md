@@ -1,11 +1,12 @@
 # AudioForge - Agent Guidelines
 
 ## Tech Stack
-- **Frontend**: Next.js 16 (React) + Tailwind CSS + TypeScript
+- **Frontend**: Next.js 16 (React 19) + Tailwind CSS + TypeScript
 - **Backend**: FastAPI (Python 3.12)
 - **Database**: PostgreSQL (async with SQLAlchemy)
 - **Job Queue**: Celery + Redis
 - **Storage**: MinIO (S3-compatible)
+- **Audio Processing**: Demucs, RNNoise, Essentia, librosa
 
 ## Build, Lint, and Test Commands
 
@@ -14,12 +15,13 @@
 cd frontend
 npm install
 npm run dev          # Dev server (port 3000)
-npm run build        # Production build
 npm run lint         # ESLint
 npm run lint --fix   # ESLint auto-fix
 npx tsc --noEmit     # TypeScript check
-npm test             # Run tests
-npm test -- filename.test.ts  # Single test
+npm run build        # Production build (runs typecheck + lint)
+npm test             # Run all tests
+npm test -- filename.test.ts  # Single test file
+npm test -- --watch  # Watch mode
 ```
 
 ### Backend
@@ -52,6 +54,8 @@ docker-compose down
 - **Naming**: snake_case (vars/functions), PascalCase (classes), UPPER_SNAKE_CASE (constants)
 - **Error Handling**: HTTPException, try/except, log appropriately, never expose secrets
 - **Database**: Async SQLAlchemy + asyncpg, dependency injection (`db: AsyncSession = Depends(get_db)`), use `await db.flush()` after add, `await db.refresh()` before return, UUIDs for PKs
+- **Response Models**: Always use Pydantic schemas (`response_model`) for API endpoints
+- **Async**: Use `async def` for all route handlers and database operations
 
 ### TypeScript/React (Frontend)
 - **Imports**: Absolute with `@/` prefix (e.g., `@/lib/api`), group: React/next → libs → components → types
@@ -70,7 +74,11 @@ backend/
 │   ├── core/       # Config, database, security, storage
 │   ├── models/     # SQLAlchemy models
 │   ├── schemas/    # Pydantic schemas
+│   ├── services/   # Business logic
 │   └── workers/    # Celery tasks
+│       ├── separation.py  # Demucs audio separation
+│       ├── denoise.py     # Noise reduction
+│       └── instrument_id.py # Instrument identification
 ├── alembic/        # Database migrations
 └── tests/          # Test files
 
@@ -142,6 +150,12 @@ const pollInterval = setInterval(async () => {
 6. Never expose secrets in error messages or logs
 7. Use `GH_TOKEN` for GitHub access: `echo $GH_TOKEN | gh auth login --with-token`
 
+## VS Code Debugging
+Use `.vscode/launch.json` configurations:
+- **Python: FastAPI Backend** - Debug API server
+- **Python: Celery Worker** - Debug background workers
+- **Node: Frontend Dev** - Debug frontend
+
 ## Audio OSS Stack
 - **Media I/O**: PyAV + FFmpeg CLI
 - **Simple edits**: PyDub
@@ -154,6 +168,17 @@ const pollInterval = setInterval(async () => {
 - **Backend**: pytest + pytest-asyncio, test files in `backend/tests/`, use `httpx.AsyncClient`, naming: `test_module_name.py`
 - **Frontend**: Tests alongside components (`filename.test.ts`), React Testing Library, mock API with MSW
 
+### Testing Dependencies
+```bash
+pip install pytest pytest-asyncio httpx
+```
+
 ## Error Handling
 - **Backend**: Use FastAPI's `HTTPException`, custom handlers in `app/core/exceptions.py`, log with context, return user-friendly messages
 - **Frontend**: Wrap async in try/catch, toast notifications, log with context, handle loading/error/success states
+
+## Database Sessions
+- Get DB session via dependency injection: `db: AsyncSession = Depends(get_db)`
+- Always use `await db.flush()` after `db.add()` to get generated IDs
+- Use `await db.refresh(obj, attribute_names=['...'])` before returning
+- Use UUIDs for primary keys, UTC timestamps, soft deletes
