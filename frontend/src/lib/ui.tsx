@@ -92,12 +92,12 @@ interface KnobProps {
   showValue?: boolean;
 }
 
-const colorClasses: Record<KnobColor, { bg: string; ring: string; indicator: string; glow: string }> = {
-  blue: { bg: 'bg-blue-500', ring: 'bg-blue-600', indicator: 'bg-white', glow: 'shadow-blue-500/50' },
-  purple: { bg: 'bg-purple-500', ring: 'bg-purple-600', indicator: 'bg-white', glow: 'shadow-purple-500/50' },
-  amber: { bg: 'bg-amber-500', ring: 'bg-amber-600', indicator: 'bg-white', glow: 'shadow-amber-500/50' },
-  emerald: { bg: 'bg-emerald-500', ring: 'bg-emerald-600', indicator: 'bg-white', glow: 'shadow-emerald-500/50' },
-  rose: { bg: 'bg-rose-500', ring: 'bg-rose-600', indicator: 'bg-white', glow: 'shadow-rose-500/50' },
+const colorClasses: Record<KnobColor, { accent: string; glow: string; indicator: string }> = {
+  blue: { accent: '#3b82f6', glow: 'drop-shadow(0 0 4px rgba(59,130,246,0.6))', indicator: '#e0e0e0' },
+  purple: { accent: '#a855f7', glow: 'drop-shadow(0 0 4px rgba(168,85,247,0.6))', indicator: '#e0e0e0' },
+  amber: { accent: '#f59e0b', glow: 'drop-shadow(0 0 4px rgba(245,158,11,0.6))', indicator: '#e0e0e0' },
+  emerald: { accent: '#10b981', glow: 'drop-shadow(0 0 4px rgba(16,185,129,0.6))', indicator: '#e0e0e0' },
+  rose: { accent: '#f43f5e', glow: 'drop-shadow(0 0 4px rgba(244,63,94,0.6))', indicator: '#e0e0e0' },
 };
 
 export function Knob({
@@ -110,14 +110,30 @@ export function Knob({
   size = 'md',
   showValue = true,
 }: KnobProps) {
-  const outerSize = size === 'sm' ? 'w-9 h-9' : 'w-12 h-12';
-  const innerSize = size === 'sm' ? 'w-7 h-7' : 'w-9 h-9';
-  const knobSize = size === 'sm' ? 28 : 36;
+  const knobSize = size === 'sm' ? 36 : 48;
+  const center = knobSize / 2;
+  const radius = size === 'sm' ? 14 : 18;
   
   const normalizedValue = ((value - min) / (max - min)) * 270;
   const rotation = normalizedValue - 135;
-  const indicatorRotation = rotation;
+  const c = colorClasses[color];
   
+  const arcStart = 135;
+  const arcEnd = arcStart + normalizedValue;
+  const arcRadius = radius - 2;
+  
+  const describeArc = (startAngle: number, endAngle: number) => {
+    const start = polarToCartesian(center, center, arcRadius, endAngle);
+    const end = polarToCartesian(center, center, arcRadius, startAngle);
+    const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1;
+    return `M ${start.x} ${start.y} A ${arcRadius} ${arcRadius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
+  };
+  
+  function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
+    const rad = (angle - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -5 : 5;
@@ -126,14 +142,16 @@ export function Knob({
   };
 
   const handleDragStart = (e: React.MouseEvent) => {
-    const startY = e.clientY;
-    const startValue = value;
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
     
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaY = startY - moveEvent.clientY;
-      const sensitivity = (max - min) / 150;
-      const newValue = Math.max(min, Math.min(max, startValue + deltaY * sensitivity));
-      onChange(Math.round(newValue));
+      const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * 180 / Math.PI;
+      let normalizedAngle = (angle + 90 + 360) % 360;
+      if (normalizedAngle > 270) normalizedAngle = 0;
+      const newValue = Math.round((normalizedAngle / 270) * (max - min) + min);
+      onChange(Math.max(min, Math.min(max, newValue)));
     };
     
     const handleMouseUp = () => {
@@ -145,12 +163,13 @@ export function Knob({
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  const c = colorClasses[color];
+  const indicatorLength = size === 'sm' ? 8 : 10;
+  const indicatorEnd = polarToCartesian(center, center, radius - 4, arcEnd);
 
   return (
     <div className="flex flex-col items-center gap-0.5">
       <div
-        className={`relative cursor-pointer select-none`}
+        className={`relative cursor-pointer select-none ${size === 'sm' ? 'w-9 h-9' : 'w-12 h-12'}`}
         onWheel={handleWheel}
         onMouseDown={handleDragStart}
         role="slider"
@@ -160,58 +179,124 @@ export function Knob({
         aria-valuenow={value}
         tabIndex={0}
       >
-        {/* Outer ring with 3D effect */}
-        <div className={`${outerSize} rounded-full bg-gradient-to-br from-gray-100 to-gray-300 dark:from-gray-600 dark:to-gray-800 shadow-lg`}>
-          {/* Inner ring */}
-          <div className={`absolute inset-[3px] ${innerSize} rounded-full bg-gradient-to-br from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-900`}>
-            {/* Knob body */}
-            <div className={`absolute inset-[2px] ${size === 'sm' ? 'w-[22px] h-[22px]' : 'w-[28px] h-[28px]'} left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-b from-gray-300 to-gray-500 dark:from-gray-600 dark:to-gray-800 shadow-inner`}>
-              {/* Value arc background */}
-              <svg
-                width={knobSize - 4}
-                height={knobSize - 4}
-                viewBox="0 0 40 40"
-                className="absolute top-0 left-0"
-              >
-                <circle
-                  cx="20"
-                  cy="20"
-                  r="16"
-                  fill="none"
-                  strokeWidth="3"
-                  className="text-gray-400/30 dark:text-gray-500/30"
-                  strokeDasharray={`${Math.PI * 16 * 0.75} ${Math.PI * 16}`}
-                  strokeLinecap="round"
-                  transform="rotate(135 20 20)"
-                />
-                <circle
-                  cx="20"
-                  cy="20"
-                  r="16"
-                  fill="none"
-                  strokeWidth="3"
-                  className={`${c.ring}`}
-                  strokeDasharray={`${Math.PI * 16 * (normalizedValue / 270)} ${Math.PI * 16}`}
-                  strokeLinecap="round"
-                  transform="rotate(135 20 20)"
-                  style={{ filter: `drop-shadow(0 0 3px ${c.glow})` }}
-                />
-              </svg>
-              
-              {/* Indicator dot */}
-              <div
-                className={`absolute w-1.5 h-1.5 rounded-full ${c.indicator}`}
-                style={{
-                  top: '15%',
-                  left: '50%',
-                  transform: `translateX(-50%) rotate(${indicatorRotation}deg)`,
-                  transformOrigin: 'center 85%',
-                  boxShadow: '0 0 4px rgba(255,255,255,0.8)'
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        <svg
+          width={knobSize}
+          height={knobSize}
+          viewBox={`0 0 ${knobSize} ${knobSize}`}
+          className="absolute inset-0"
+        >
+          {/* Drop shadow */}
+          <defs>
+            <filter id={`shadow-${color}-${size}`} x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.3" />
+            </filter>
+            <linearGradient id={`metal-${color}-${size}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#4a4a4a" />
+              <stop offset="30%" stopColor="#8a8a8a" />
+              <stop offset="50%" stopColor="#6a6a6a" />
+              <stop offset="70%" stopColor="#9a9a9a" />
+              <stop offset="100%" stopColor="#5a5a5a" />
+            </linearGradient>
+            <linearGradient id={`knob-${color}-${size}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#5a5a5a" />
+              <stop offset="40%" stopColor="#3a3a3a" />
+              <stop offset="60%" stopColor="#4a4a4a" />
+              <stop offset="100%" stopColor="#2a2a2a" />
+            </linearGradient>
+          </defs>
+          
+          {/* Base ring - metallic */}
+          <circle
+            cx={center}
+            cy={center}
+            r={radius + 2}
+            fill="url(#metal-dim)"
+            className="opacity-20"
+          />
+          <circle
+            cx={center}
+            cy={center}
+            r={radius + 2}
+            fill="none"
+            stroke="#666"
+            strokeWidth="1"
+            className="opacity-30"
+          />
+          
+          {/* Outer ring with metallic gradient */}
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="url(#metal-light)"
+            filter={`url(#shadow-${color}-${size})`}
+          >
+            <animate attributeName="opacity" values="1;0.95;1" dur="3s" repeatCount="indefinite" />
+          </circle>
+          
+          {/* Inner ring - darker */}
+          <circle
+            cx={center}
+            cy={center}
+            r={radius - 3}
+            fill="url(#knob-dim)"
+          />
+          
+          {/* Value arc track */}
+          <path
+            d={describeArc(arcStart, arcStart + 270)}
+            fill="none"
+            stroke="#333"
+            strokeWidth="3"
+            strokeLinecap="round"
+            className="opacity-40"
+          />
+          
+          {/* Value arc - colored */}
+          {normalizedValue > 0 && (
+            <path
+              d={describeArc(arcStart, arcEnd)}
+              fill="none"
+              stroke={c.accent}
+              strokeWidth="3"
+              strokeLinecap="round"
+              style={{ filter: c.glow }}
+            />
+          )}
+          
+          {/* Center dot */}
+          <circle
+            cx={center}
+            cy={center}
+            r="3"
+            fill="#222"
+          />
+          
+          {/* Indicator line */}
+          <line
+            x1={center}
+            y1={center - 6}
+            x2={center}
+            y2={center - radius + 6}
+            stroke={c.indicator}
+            strokeWidth={size === 'sm' ? 2 : 2.5}
+            strokeLinecap="round"
+            style={{
+              transform: `rotate(${rotation}deg)`,
+              transformOrigin: `${center}px ${center}px`,
+              filter: `drop-shadow(0 0 2px ${c.accent})`
+            }}
+          />
+          
+          {/* Indicator glow */}
+          <circle
+            cx={indicatorEnd.x}
+            cy={indicatorEnd.y}
+            r={size === 'sm' ? 2.5 : 3}
+            fill={c.accent}
+            style={{ filter: c.glow }}
+          />
+        </svg>
       </div>
       {showValue && (
         <span className="text-[10px] text-gray-600 dark:text-gray-300 font-semibold tabular-nums">
