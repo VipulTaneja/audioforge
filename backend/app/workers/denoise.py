@@ -104,19 +104,18 @@ def denoise_audio(
         
         if output_mode == 'overwrite':
             # Update existing asset
-            existing_name = asset.result.get('display_name') if asset.result else None
-            asset.result = asset.result or {}
-            asset.result['display_name'] = f"{existing_name or 'Audio'} (Denoised)"
+            existing_name = asset.display_name or (asset.result.get('display_name') if asset.result else None)
+            asset.display_name = f"{existing_name or 'Audio'} (Denoised)"
             db.flush()
             result_asset_id = str(asset.id)
         else:
             # Create new asset
-            existing_name = asset.result.get('display_name') if asset.result else None
+            existing_name = asset.display_name or (asset.result.get('display_name') if asset.result else None)
             new_asset = Asset(
                 project_id=project_id,
                 type='original',
                 s3_key=output_key,
-                result={'display_name': f"{existing_name or 'Audio'} (Denoised)"},
+                display_name=f"{existing_name or 'Audio'} (Denoised)",
                 duration=len(reduced_noise) / sample_rate,
                 sample_rate=sample_rate,
                 channels=1,

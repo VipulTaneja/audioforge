@@ -101,10 +101,7 @@ async def update_asset(asset_id: UUID, asset_update: AssetUpdate, db: AsyncSessi
 
     if asset_update.display_name is not None:
         display_name = asset_update.display_name.strip()
-        if display_name:
-            next_result["display_name"] = display_name
-        else:
-            next_result.pop("display_name", None)
+        asset.display_name = display_name if display_name else None
 
     asset.result = next_result or None
     await db.flush()

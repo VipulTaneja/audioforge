@@ -72,6 +72,7 @@ class AssetCreate(BaseModel):
 class AssetResponse(AssetCreate):
     id: UUID
     waveform_png: Optional[str] = None
+    display_name: Optional[str] = None
     created_by: UUID
     created_at: datetime
     result: Optional[dict] = None

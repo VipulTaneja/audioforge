@@ -110,6 +110,7 @@ class Asset(Base):
     channels = Column(Integer, default=2)
     sample_rate = Column(Integer, default=44100)
     waveform_png = Column(Text, nullable=True)
+    display_name = Column(String(255), nullable=True)  # Human-readable name, separate from JSON result
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     result = Column(JSON, nullable=True)
