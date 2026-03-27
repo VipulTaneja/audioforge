@@ -6,7 +6,7 @@
 - **Database**: PostgreSQL (async with SQLAlchemy)
 - **Job Queue**: Celery + Redis
 - **Storage**: MinIO (S3-compatible)
-- **Audio Processing**: Demucs (separation), soundfile (audio loading)
+- **Audio Processing**: soundfile (audio loading)
 
 ## Key Files
 
@@ -19,7 +19,7 @@
 | `api/projects.py` | Project CRUD endpoints |
 | `api/assets.py` | Asset management + presigned URL + waveform endpoint |
 | `api/jobs.py` | Job creation + status polling |
-| `workers/separation.py` | Celery task for Demucs audio separation (Python API) |
+| `workers/separation.py` | Celery task for audio separation |
 | `core/storage.py` | MinIO/S3 client for file operations |
 | `core/database.py` | Async SQLAlchemy session setup |
 
@@ -216,10 +216,10 @@ frontend/src/
 1. **Backend API**: All routes under `/api/v1` prefix
 2. **Job Processing**: Jobs are async via Celery; poll status with 2-second interval
 3. **File Storage**: Assets stored in MinIO; use presigned URLs for upload/download
-4. **Audio Processing**: Demucs for separation, RNNoise for denoise, fallback to mock if not installed
+4. **Audio Processing**: Soundfile for audio loading, with Celery workers for async processing
 5. **Frontend Tabs**: Project detail has 3 tabs - Upload, Separate, Mixer
    Upload links to a dedicated composer page for synth-based asset creation
-6. **Separation Options**: The Separate tab supports selectable Demucs models (`htdemucs`, `htdemucs_ft`, `mdx`, `mdx_extra`) and output modes (`four_stem`, `two_stem_vocals`)
+6. **Separation Options**: The Separate tab supports selectable separation models and output modes
 7. **Admin Jobs Console**: `/admin/jobs` lists all jobs with details and supports admin status overrides for stopping or failing jobs
 8. **Dark Mode**: ThemeToggle component for dark/light theme switching
 7. **Database**: UUID primary keys, timestamps with UTC, soft deletes via status field
@@ -246,7 +246,6 @@ MINIO_SECRET_KEY=minioadmin
 
 ## Important Notes
 - Default user/org created automatically if none exist
-- Demucs uses Python API with soundfile (not ffmpeg)
 - Frontend uses real stem audio files for playback (with oscillator fallback)
 - Waveform displays actual audio peaks from backend
 - Job polling interval: 2 seconds
@@ -263,10 +262,9 @@ MINIO_SECRET_KEY=minioadmin
 
 ### Separate Tab
 - Select original audio file
-- Choose a Demucs model (`htdemucs`, `htdemucs_ft`, `mdx`, `mdx_extra`)
-- Choose an output mode (`four_stem` or `two_stem_vocals`)
-- `four_stem` is restricted to HT Demucs variants for reliable multi-stem output
-- Trigger Demucs separation job
+- Choose a separation model
+- Choose an output mode
+- Trigger separation job
 - Poll job status, show progress
 - Separated stems are persisted as project assets and reloaded into the mixer
 
@@ -335,36 +333,6 @@ const pollInterval = setInterval(async () => {
 3. **API Changes**: Update README.md API endpoints section when adding/modifying endpoints
 
 4. **New Features**: Document new features in README.md Features section
-
----
-
-## Troubleshooting: Demucs Audio Separation
-
-### Issue: "FFmpeg is not installed" or "Could not load libtorchcodec"
-
-The Demucs worker uses Python API with soundfile for audio loading (not CLI/ffmpeg). If separation fails:
-- Check Celery worker logs for the actual error
-- Ensure `demucs` and `soundfile` packages are installed in the venv
-- The worker automatically falls back to mock separation if Demucs fails
-
-### Debugging Demucs
-
-```bash
-# Test demucs in Python
-cd backend
-source venv/bin/activate
-python -c "
-from demucs.pretrained import get_model
-from demucs.apply import apply_model
-import torch
-m = get_model('htdemucs')
-print('Model loaded:', m)
-"
-```
-
-### Mock Separation
-
-If Demucs cannot be used (no GPU, missing dependencies), the system uses mock separation which creates placeholder sine wave audio. This is indicated by logs showing "Using mock separation".
 
 ---
 
