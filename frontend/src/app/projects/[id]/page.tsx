@@ -276,6 +276,7 @@ export default function ProjectDetailPage() {
   const [markerDraft, setMarkerDraft] = useState('');
   const [snapshots, setSnapshots] = useState<ProjectSnapshot[]>([]);
   const [showSnapshots, setShowSnapshots] = useState(false);
+  const [expandedEffects, setExpandedEffects] = useState<Record<string, 'reverb' | 'delay' | null>>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   
@@ -1603,6 +1604,13 @@ export default function ProjectDetailPage() {
       }
 
       return { ...s, delayFeedback };
+    }));
+  };
+
+  const toggleEffectExpanded = (stemId: string, effect: 'reverb' | 'delay') => {
+    setExpandedEffects(prev => ({
+      ...prev,
+      [stemId]: prev[stemId] === effect ? null : effect
     }));
   };
 
@@ -3004,90 +3012,105 @@ export default function ProjectDetailPage() {
                             className="flex-1 h-1 accent-blue-600 cursor-pointer"
                           />
                         </div>
-                        {/* Reverb slider */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-gray-400" title="Reverb: Add spaciousness/ambience (0-100%)">R</span>
+                        {/* Reverb - collapsible */}
+                        <button
+                          type="button"
+                          onClick={() => toggleEffectExpanded(stem.id, 'reverb')}
+                          className={`flex items-center gap-1 w-full text-left ${expandedEffects[stem.id] === 'reverb' ? 'text-purple-600 dark:text-purple-400' : ''}`}
+                        >
+                          <span className="text-[9px] text-gray-400" title="Reverb: Add spaciousness/ambience">R</span>
                           <input
                             type="range"
                             min="0"
                             max="100"
                             value={stem.reverb}
                             onChange={(e) => handleReverbChange(stem.id, parseInt(e.target.value))}
+                            onClick={(e) => e.stopPropagation()}
                             className="flex-1 h-1 accent-purple-600 cursor-pointer"
                           />
-                        </div>
-                        {/* Reverb Wet/Dry slider */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-gray-400" title="Reverb Wet/Dry: Mix between dry and wet signal">W</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={stem.reverbWetDry}
-                            onChange={(e) => handleReverbWetDryChange(stem.id, parseInt(e.target.value))}
-                            className="flex-1 h-1 accent-purple-400 cursor-pointer"
-                          />
-                        </div>
-                        {/* Reverb Decay slider */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-gray-400" title="Reverb Decay: How long the reverb lasts">Dcy</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={stem.reverbDecay}
-                            onChange={(e) => handleReverbDecayChange(stem.id, parseInt(e.target.value))}
-                            className="flex-1 h-1 accent-purple-400 cursor-pointer"
-                          />
-                        </div>
-                        {/* Reverb Pre-Delay slider */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-gray-400" title="Reverb Pre-Delay: Time before reverb starts">Ply</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={stem.reverbPreDelay}
-                            onChange={(e) => handleReverbPreDelayChange(stem.id, parseInt(e.target.value))}
-                            className="flex-1 h-1 accent-purple-400 cursor-pointer"
-                          />
-                        </div>
-                        {/* Delay slider */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-gray-400" title="Delay: Add echo effect (0-100%)">D</span>
+                          <span className={`text-[8px] ${expandedEffects[stem.id] === 'reverb' ? 'rotate-90' : ''} transition-transform`}>▶</span>
+                        </button>
+                        {expandedEffects[stem.id] === 'reverb' && (
+                          <div className="pl-3 space-y-1 mt-1 border-l-2 border-purple-200 dark:border-purple-800">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[8px] text-gray-400">Wet</span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={stem.reverbWetDry}
+                                onChange={(e) => handleReverbWetDryChange(stem.id, parseInt(e.target.value))}
+                                className="flex-1 h-1 accent-purple-400 cursor-pointer"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[8px] text-gray-400">Decay</span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={stem.reverbDecay}
+                                onChange={(e) => handleReverbDecayChange(stem.id, parseInt(e.target.value))}
+                                className="flex-1 h-1 accent-purple-400 cursor-pointer"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[8px] text-gray-400">Pre</span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={stem.reverbPreDelay}
+                                onChange={(e) => handleReverbPreDelayChange(stem.id, parseInt(e.target.value))}
+                                className="flex-1 h-1 accent-purple-400 cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {/* Delay - collapsible */}
+                        <button
+                          type="button"
+                          onClick={() => toggleEffectExpanded(stem.id, 'delay')}
+                          className={`flex items-center gap-1 w-full text-left ${expandedEffects[stem.id] === 'delay' ? 'text-amber-600 dark:text-amber-400' : ''}`}
+                        >
+                          <span className="text-[9px] text-gray-400" title="Delay: Add echo effect">D</span>
                           <input
                             type="range"
                             min="0"
                             max="100"
                             value={stem.delay}
                             onChange={(e) => handleDelayChange(stem.id, parseInt(e.target.value))}
+                            onClick={(e) => e.stopPropagation()}
                             className="flex-1 h-1 accent-amber-600 cursor-pointer"
                           />
-                        </div>
-                        {/* Delay Wet/Dry slider */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-gray-400" title="Delay Wet/Dry: Mix between dry and wet signal">W</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={stem.delayWetDry}
-                            onChange={(e) => handleDelayWetDryChange(stem.id, parseInt(e.target.value))}
-                            className="flex-1 h-1 accent-amber-400 cursor-pointer"
-                          />
-                        </div>
-                        {/* Delay Feedback slider */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-gray-400" title="Delay Feedback: How much delay repeats">Fdb</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={stem.delayFeedback}
-                            onChange={(e) => handleDelayFeedbackChange(stem.id, parseInt(e.target.value))}
-                            className="flex-1 h-1 accent-amber-400 cursor-pointer"
-                          />
-                        </div>
+                          <span className={`text-[8px] ${expandedEffects[stem.id] === 'delay' ? 'rotate-90' : ''} transition-transform`}>▶</span>
+                        </button>
+                        {expandedEffects[stem.id] === 'delay' && (
+                          <div className="pl-3 space-y-1 mt-1 border-l-2 border-amber-200 dark:border-amber-800">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[8px] text-gray-400">Wet</span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={stem.delayWetDry}
+                                onChange={(e) => handleDelayWetDryChange(stem.id, parseInt(e.target.value))}
+                                className="flex-1 h-1 accent-amber-400 cursor-pointer"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[8px] text-gray-400">Fdb</span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={stem.delayFeedback}
+                                onChange={(e) => handleDelayFeedbackChange(stem.id, parseInt(e.target.value))}
+                                className="flex-1 h-1 accent-amber-400 cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        )}
                         {/* Level meter */}
                         <div className="flex items-center gap-1 mt-0.5">
                           <div className="w-full h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden" title={`Level: ${Math.round((trackLevels[stem.id] ?? 0) * 100)}%`}>
