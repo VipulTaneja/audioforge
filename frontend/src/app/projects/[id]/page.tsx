@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { api, Asset, DemucsModel, Job, Stem, StemMode, TimelineMarker, ProjectSnapshot } from '@/lib/api';
 import { formatBrowserDateTime } from '@/lib/datetime';
-import { getStatusTone } from '@/lib/ui';
+import { getStatusTone, Knob } from '@/lib/ui';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   AudioWaveform,
@@ -2987,128 +2987,111 @@ export default function ProjectDetailPage() {
                           </button>
                           <span className="text-[9px] text-gray-400 ml-auto">{stem.volume}%</span>
                         </div>
-                        {/* Volume slider */}
-                        <div className="flex items-center gap-1 mb-1">
-                          <span className="text-[9px] text-gray-400" title="Volume: Adjust track loudness (0-100)">V</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
+                        {/* Knobs row */}
+                        <div className="flex justify-around py-2">
+                          <Knob
+                            label="Vol"
                             value={stem.volume}
-                            onChange={(e) => handleVolumeChange(stem.id, parseInt(e.target.value))}
-                            className="flex-1 h-1 accent-blue-600 cursor-pointer"
-                            title={`Volume: ${stem.volume}%`}
+                            onChange={(v) => handleVolumeChange(stem.id, v)}
+                            color="blue"
+                            size="sm"
                           />
-                        </div>
-                        {/* Pan slider */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-gray-400" title="Pan: Move sound left (-100) or right (+100), 0 is center">P</span>
-                          <input
-                            type="range"
-                            min="-100"
-                            max="100"
+                          <Knob
+                            label="Pan"
                             value={stem.pan}
-                            onChange={(e) => handlePanChange(stem.id, parseInt(e.target.value))}
-                            className="flex-1 h-1 accent-blue-600 cursor-pointer"
+                            min={-100}
+                            max={100}
+                            onChange={(v) => handlePanChange(stem.id, v)}
+                            color="blue"
+                            size="sm"
                           />
-                        </div>
-                        {/* Reverb - collapsible */}
-                        <button
-                          type="button"
-                          onClick={() => toggleEffectExpanded(stem.id, 'reverb')}
-                          className={`flex items-center gap-1 w-full text-left ${expandedEffects[stem.id] === 'reverb' ? 'text-purple-600 dark:text-purple-400' : ''}`}
-                        >
-                          <span className="text-[9px] text-gray-400" title="Reverb: Add spaciousness/ambience">R</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={stem.reverb}
-                            onChange={(e) => handleReverbChange(stem.id, parseInt(e.target.value))}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-1 h-1 accent-purple-600 cursor-pointer"
-                          />
-                          <span className={`text-[8px] ${expandedEffects[stem.id] === 'reverb' ? 'rotate-90' : ''} transition-transform`}>▶</span>
-                        </button>
-                        {expandedEffects[stem.id] === 'reverb' && (
-                          <div className="pl-3 space-y-1 mt-1 border-l-2 border-purple-200 dark:border-purple-800">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[8px] text-gray-400">Wet</span>
-                              <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={stem.reverbWetDry}
-                                onChange={(e) => handleReverbWetDryChange(stem.id, parseInt(e.target.value))}
-                                className="flex-1 h-1 accent-purple-400 cursor-pointer"
-                              />
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[8px] text-gray-400">Decay</span>
-                              <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={stem.reverbDecay}
-                                onChange={(e) => handleReverbDecayChange(stem.id, parseInt(e.target.value))}
-                                className="flex-1 h-1 accent-purple-400 cursor-pointer"
-                              />
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[8px] text-gray-400">Pre</span>
-                              <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={stem.reverbPreDelay}
-                                onChange={(e) => handleReverbPreDelayChange(stem.id, parseInt(e.target.value))}
-                                className="flex-1 h-1 accent-purple-400 cursor-pointer"
-                              />
-                            </div>
+                          <div className="relative">
+                            <Knob
+                              label="Verb"
+                              value={stem.reverb}
+                              onChange={(v) => handleReverbChange(stem.id, v)}
+                              color="purple"
+                              size="sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => toggleEffectExpanded(stem.id, 'reverb')}
+                              className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full text-[8px] flex items-center justify-center ${
+                                expandedEffects[stem.id] === 'reverb' 
+                                  ? 'bg-purple-500 text-white' 
+                                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500'
+                              }`}
+                            >
+                              +
+                            </button>
                           </div>
-                        )}
-                        {/* Delay - collapsible */}
-                        <button
-                          type="button"
-                          onClick={() => toggleEffectExpanded(stem.id, 'delay')}
-                          className={`flex items-center gap-1 w-full text-left ${expandedEffects[stem.id] === 'delay' ? 'text-amber-600 dark:text-amber-400' : ''}`}
-                        >
-                          <span className="text-[9px] text-gray-400" title="Delay: Add echo effect">D</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={stem.delay}
-                            onChange={(e) => handleDelayChange(stem.id, parseInt(e.target.value))}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-1 h-1 accent-amber-600 cursor-pointer"
-                          />
-                          <span className={`text-[8px] ${expandedEffects[stem.id] === 'delay' ? 'rotate-90' : ''} transition-transform`}>▶</span>
-                        </button>
-                        {expandedEffects[stem.id] === 'delay' && (
-                          <div className="pl-3 space-y-1 mt-1 border-l-2 border-amber-200 dark:border-amber-800">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[8px] text-gray-400">Wet</span>
-                              <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={stem.delayWetDry}
-                                onChange={(e) => handleDelayWetDryChange(stem.id, parseInt(e.target.value))}
-                                className="flex-1 h-1 accent-amber-400 cursor-pointer"
-                              />
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[8px] text-gray-400">Fdb</span>
-                              <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={stem.delayFeedback}
-                                onChange={(e) => handleDelayFeedbackChange(stem.id, parseInt(e.target.value))}
-                                className="flex-1 h-1 accent-amber-400 cursor-pointer"
-                              />
-                            </div>
+                          <div className="relative">
+                            <Knob
+                              label="Dly"
+                              value={stem.delay}
+                              onChange={(v) => handleDelayChange(stem.id, v)}
+                              color="amber"
+                              size="sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => toggleEffectExpanded(stem.id, 'delay')}
+                              className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full text-[8px] flex items-center justify-center ${
+                                expandedEffects[stem.id] === 'delay' 
+                                  ? 'bg-amber-500 text-white' 
+                                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500'
+                              }`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                        {/* Expanded controls */}
+                        {expandedEffects[stem.id] && (
+                          <div className="flex justify-around py-2 border-t border-gray-200 dark:border-gray-700 mt-1">
+                            {expandedEffects[stem.id] === 'reverb' && (
+                              <>
+                                <Knob
+                                  label="Wet"
+                                  value={stem.reverbWetDry}
+                                  onChange={(v) => handleReverbWetDryChange(stem.id, v)}
+                                  color="purple"
+                                  size="sm"
+                                />
+                                <Knob
+                                  label="Dcy"
+                                  value={stem.reverbDecay}
+                                  onChange={(v) => handleReverbDecayChange(stem.id, v)}
+                                  color="purple"
+                                  size="sm"
+                                />
+                                <Knob
+                                  label="Pre"
+                                  value={stem.reverbPreDelay}
+                                  onChange={(v) => handleReverbPreDelayChange(stem.id, v)}
+                                  color="purple"
+                                  size="sm"
+                                />
+                              </>
+                            )}
+                            {expandedEffects[stem.id] === 'delay' && (
+                              <>
+                                <Knob
+                                  label="Wet"
+                                  value={stem.delayWetDry}
+                                  onChange={(v) => handleDelayWetDryChange(stem.id, v)}
+                                  color="amber"
+                                  size="sm"
+                                />
+                                <Knob
+                                  label="Fdb"
+                                  value={stem.delayFeedback}
+                                  onChange={(v) => handleDelayFeedbackChange(stem.id, v)}
+                                  color="amber"
+                                  size="sm"
+                                />
+                              </>
+                            )}
                           </div>
                         )}
                         {/* Level meter */}
