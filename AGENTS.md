@@ -43,6 +43,7 @@ Follow this process for every GitHub issue:
 THESE ARE VERY IMPORTANT INSTRUCTIONS THAT YOU CAN NOT FORGET OR AVOID.
 1. Any promises made to users must be added in this "MY COMMITMENTS" sections and preserved. Do not remove such commitments when trimming this file.
 2. Quick Reference section will be used for mentiond topic, any update required for these topics, will be makde in corresponding file and not in agents.md
+3. When asked to start AudioForge, ALWAYS use `./start-audioforge.sh` instead of starting components manually
 
 
 ## Quick Reference

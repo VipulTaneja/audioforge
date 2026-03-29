@@ -81,11 +81,15 @@ async def create_job(
         "instrument_id": "tasks.identify_instruments",
     }
 
+    task_kwargs = {}
     if job.type == "separate" and job.params:
         params = dict(job.params)
         separator = params.get("separator", "demucs")
         if separator == "spleeter":
             job_type_handlers["separate"] = "tasks.separate_audio_spleeter"
+        else:
+            task_kwargs["demucs_model"] = params.get("demucs_model", "htdemucs")
+        task_kwargs["stem_mode"] = params.get("stem_mode", "four_stem")
     
     handler_name = job_type_handlers.get(job.type)
     
@@ -95,7 +99,7 @@ async def create_job(
             task = celery_app.send_task(
                 handler_name,
                 args=[str(db_job.id), str(job.asset_ids[0]) if job.asset_ids else None, str(job.project_id)],
-                kwargs=job.params
+                kwargs=task_kwargs
             )
             logger.info(f"Queued job {db_job.id} with task {handler_name}, task_id={task.id}")
         except Exception as e:

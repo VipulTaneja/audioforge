@@ -379,6 +379,19 @@ export default function ProjectDetailPage() {
   }, []);
 
   useEffect(() => {
+    const allAudioAssets = assets.filter((asset) => asset.type === 'original' || asset.type === 'stem');
+    allAudioAssets.forEach((asset) => {
+      if (!detectedBpm[asset.id] && detectingBpmId !== asset.id) {
+        handleDetectBpm(asset.id);
+      }
+      if (!detectedKey[asset.id] && detectingKeyId !== asset.id) {
+        handleDetectKey(asset.id);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets]);
+
+  useEffect(() => {
     const loadProjectData = async () => {
       try {
         const [project, projectAssets, projectMarkers, projectSnapshots] = await Promise.all([
@@ -1901,6 +1914,7 @@ export default function ProjectDetailPage() {
 
   const originalAssets = assets.filter((asset) => asset.type === 'original');
   const stemAssets = assets.filter((asset) => asset.type === 'stem');
+  const audioAssets = assets.filter((asset) => asset.type === 'original' || asset.type === 'stem');
   const displayedAssets = useMemo(() => {
     const normalizedSearch = assetSearch.trim().toLowerCase();
     const filteredAssets = assets.filter((asset) => {
@@ -2000,16 +2014,16 @@ export default function ProjectDetailPage() {
                 Upload
               </button>
               <button 
-                onClick={() => originalAssets.length > 0 && setActiveTab('separate')}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'separate' ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'} ${originalAssets.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}
-                disabled={originalAssets.length === 0}
+                onClick={() => audioAssets.length > 0 && setActiveTab('separate')}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'separate' ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'} ${audioAssets.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}
+                disabled={audioAssets.length === 0}
               >
                 Separate
               </button>
               <button 
-                onClick={() => originalAssets.length > 0 && setActiveTab('denoise')}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'denoise' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'} ${originalAssets.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}
-                disabled={originalAssets.length === 0}
+                onClick={() => audioAssets.length > 0 && setActiveTab('denoise')}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'denoise' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'} ${audioAssets.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}
+                disabled={audioAssets.length === 0}
               >
                 Denoise
               </button>
@@ -2288,7 +2302,7 @@ export default function ProjectDetailPage() {
                         >
                           <Music4 size={16} />
                         </button>
-                        {asset.type === 'original' && (
+                        {(asset.type === 'original' || asset.type === 'stem') && (
                           <>
                             <button
                               onClick={(e) => { e.stopPropagation(); void handleDenoiseAsset(asset); }}
@@ -2427,10 +2441,10 @@ export default function ProjectDetailPage() {
                 <div className="mb-5">
                   <h2 className="text-lg font-semibold dark:text-white">Configure Separation</h2>
                   <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Choose the original file, Demucs model, and output layout before starting a separation job.
+                    Choose an audio file (original or stem), Demucs model, and output layout before starting a separation job.
                   </p>
                 </div>
-                {assets.filter(a => a.type === 'original').length === 0 ? (
+                {audioAssets.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-gray-500 dark:text-gray-400 mb-4">No audio files ready</p>
                     <button onClick={() => setActiveTab('upload')} className="px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600">
@@ -2439,7 +2453,7 @@ export default function ProjectDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {assets.filter(a => a.type === 'original').map((asset) => (
+                    {audioAssets.map((asset) => (
                       <div 
                         key={asset.id}
                         onClick={() => setSelectedAsset(asset)}
@@ -2672,7 +2686,7 @@ export default function ProjectDetailPage() {
                 <div className="mb-6">
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Select Audio File</h3>
                   <div className="space-y-2">
-                    {assets.filter(a => a.type === 'original').map((asset) => (
+                    {audioAssets.map((asset) => (
                       <div 
                         key={asset.id}
                         onClick={() => setSelectedAsset(asset)}
