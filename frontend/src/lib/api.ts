@@ -242,6 +242,21 @@ class ApiService {
     });
   }
 
+  async validateAsset(assetId: string): Promise<{
+    valid: boolean;
+    duration?: number;
+    sample_rate?: number;
+    channels?: number;
+    codec?: string;
+    bitrate?: number;
+    format_name?: string;
+    errors?: string[];
+  }> {
+    return this.request(`/api/v1/assets/${assetId}/validate`, {
+      method: 'POST',
+    });
+  }
+
   // Jobs
   async createSeparationJob(
     projectId: string,

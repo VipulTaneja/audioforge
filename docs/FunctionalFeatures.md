@@ -216,6 +216,28 @@ Need to cut out just a portion of an audio file? The Trim feature lets you selec
 
 ---
 
+## Validating Audio Files
+
+The system can validate your audio files to ensure they meet quality standards and are suitable for processing.
+
+### How to Validate
+- Click the **shield icon** on any asset in your list
+- The system will inspect the file and display validation results
+
+### What Gets Validated
+- **Format** - Must be a supported format (WAV, MP3, FLAC, AAC, OGG, M4A)
+- **Sample Rate** - Must be 44100Hz or 48000Hz
+- **Channels** - Must be mono or stereo (multichannel configurable)
+- **Duration** - Must not exceed the maximum allowed length
+- **Codec** - Audio codec information is extracted
+
+### Validation Results
+- Valid files show a success message with detected properties
+- Invalid files show specific error messages explaining what needs fixing
+- Validation metadata is stored with the asset for future reference
+
+---
+
 ## Tips and Tricks
 
 ### Best Practices

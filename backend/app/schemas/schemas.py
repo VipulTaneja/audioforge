@@ -233,3 +233,15 @@ class TrimRequest(BaseModel):
         if self.end_time <= self.start_time:
             raise ValueError("End time must be greater than start time")
         return self
+
+
+class MediaInspectionResponse(BaseModel):
+    valid: bool
+    duration: Optional[float] = None
+    sample_rate: Optional[int] = None
+    channels: Optional[int] = None
+    codec: Optional[str] = None
+    bitrate: Optional[int] = None
+    format_name: Optional[str] = None
+    metadata: Optional[dict] = None
+    errors: list[str] = []

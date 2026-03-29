@@ -23,6 +23,7 @@ import {
   RotateCcw,
   Save,
   Scissors,
+  ShieldCheck,
   Sparkles,
   SplitSquareVertical,
   Square,
@@ -1030,6 +1031,22 @@ export default function ProjectDetailPage() {
   const handleTrimAsset = (asset: Asset) => {
     setSelectedAsset(asset);
     setActiveTab('trim');
+  };
+
+  const handleValidateAsset = async (asset: Asset) => {
+    try {
+      const result = await api.validateAsset(asset.id);
+      if (result.valid) {
+        alert(`Asset validated successfully!\nFormat: ${result.format_name}\nSample Rate: ${result.sample_rate}Hz\nChannels: ${result.channels}\nDuration: ${result.duration?.toFixed(1)}s`);
+      } else {
+        alert(`Validation failed:\n${result.errors?.join('\n')}`);
+      }
+      const refreshedAssets = await api.getProjectAssets(projectId);
+      setAssets(refreshedAssets);
+    } catch (error) {
+      console.error('Error validating asset:', error);
+      alert('Failed to validate asset');
+    }
   };
 
   const startRenamingAsset = (asset: Asset) => {
@@ -2323,10 +2340,24 @@ export default function ProjectDetailPage() {
                           <>
                             <button
                               onClick={(e) => { e.stopPropagation(); void handleDenoiseAsset(asset); }}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-600 transition hover:bg-cyan-100 dark:border-cyan-900/60 dark:bg-cyan-950/30 dark:text-cyan-300 dark:hover:bg-cyan-950/50"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-600 transition hover:bg-cyan-100 dark:border-cyan-900/60 dark:bg-cyan-950/30 dark:text-cyan-300 dark:hover:bg-cyan-950-50"
                               title="Reduce Noise"
                             >
                               <Waves size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handleValidateAsset(asset); }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-green-200 bg-green-50 text-green-600 transition hover:bg-green-100 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-300 dark:hover:bg-green-950-50"
+                              title="Validate"
+                            >
+                              <ShieldCheck size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleTrimAsset(asset); }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 text-orange-600 transition hover:bg-orange-100 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-300 dark:hover:bg-orange-950-50"
+                              title="Trim"
+                            >
+                              <Scissors size={16} />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleTrimAsset(asset); }}

@@ -15,7 +15,7 @@ from app.core.storage import generate_presigned_upload_url, get_s3_client
 from app.core.config import get_settings
 from app.core.cache import get_cache_service, WAVEFORM_CACHE_TTL
 from app.models import Asset, Project, User
-from app.schemas import AssetCreate, AssetResponse, AssetUpdate, ConversionRequest, PresignRequest, PresignResponse, TrimRequest, JobResponse
+from app.schemas import AssetCreate, AssetResponse, AssetUpdate, ConversionRequest, PresignRequest, PresignResponse, TrimRequest, JobResponse, MediaInspectionResponse
 
 router = APIRouter(prefix="/assets", tags=["assets"])
 
@@ -456,3 +456,51 @@ async def trim_asset(
         started_at=job.started_at,
         ended_at=job.ended_at,
     )
+
+
+@router.post("/{asset_id}/validate", response_model=MediaInspectionResponse)
+async def validate_asset(asset_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Validate an asset by inspecting its audio properties."""
+    from app.utils import inspect_from_s3, MediaValidationError
+    
+    result = await db.execute(select(Asset).where(Asset.id == asset_id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    try:
+        inspection = inspect_from_s3(asset.s3_key)
+        
+        # Update asset with validated metadata
+        if inspection.duration:
+            asset.duration = inspection.duration
+        if inspection.sample_rate:
+            asset.sample_rate = inspection.sample_rate
+        if inspection.channels:
+            asset.channels = inspection.channels
+        
+        # Store validation result in asset.result
+        validation_result = inspection.to_dict()
+        validation_result["validated"] = True
+        asset.result = validation_result
+        
+        await db.commit()
+        await db.refresh(asset)
+        
+        return MediaInspectionResponse(
+            valid=inspection.valid,
+            duration=inspection.duration,
+            sample_rate=inspection.sample_rate,
+            channels=inspection.channels,
+            codec=inspection.codec,
+            bitrate=inspection.bitrate,
+            format_name=inspection.format_name,
+            metadata=inspection.metadata,
+            errors=inspection.errors,
+        )
+        
+    except MediaValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Validation failed for asset {asset_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
