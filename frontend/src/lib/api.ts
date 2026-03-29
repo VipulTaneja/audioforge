@@ -1,5 +1,20 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
+export const DEMUCS_MODEL_OPTIONS: Array<{ value: DemucsModel; label: string; description: string }> = [
+  { value: 'htdemucs', label: 'HT Demucs', description: 'Best overall quality. 4 stems: Vocals, Drums, Bass, Other.' },
+  { value: 'htdemucs_ft', label: 'HT Demucs (Fine-tuned)', description: 'Slightly better quality but slower.' },
+  { value: 'mdx', label: 'MDX', description: 'Faster inference, good quality.' },
+  { value: 'mdx_extra', label: 'MDX Extra', description: 'Highest quality but much slower.' },
+];
+
+export const FOUR_STEM_MODELS = new Set<DemucsModel>(['htdemucs', 'htdemucs_ft']);
+export const TWO_STEM_MODELS = new Set<DemucsModel>(['htdemucs', 'htdemucs_ft', 'mdx', 'mdx_extra']);
+
+export const STEM_MODE_OPTIONS: Array<{ value: StemMode; label: string; description: string }> = [
+  { value: 'four_stem', label: '4-Stem', description: 'Vocals, Drums, Bass, Other' },
+  { value: 'two_stem_vocals', label: '2-Stem (Vocals)', description: 'Vocals and Accompaniment' },
+];
+
 export interface JobStemResult {
   stems?: Stem[];
   message?: string;

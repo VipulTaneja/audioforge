@@ -163,7 +163,6 @@ export function Knob({
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  const indicatorLength = size === 'sm' ? 8 : 10;
   const indicatorEnd = polarToCartesian(center, center, radius - 4, arcEnd);
 
   return (

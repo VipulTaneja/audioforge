@@ -672,6 +672,7 @@ export default function ProjectDetailPage() {
         meterAnimationRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getLoudness, getMeterLevel, getMeterRms, getPhaseCorrelation, getSpectrumData, isPlaying, showSpectrum, timelineStems]);
 
   const initAudioContext = useCallback(async () => {
