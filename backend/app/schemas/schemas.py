@@ -47,6 +47,10 @@ class ProjectCreate(ProjectBase):
     org_id: Optional[UUID] = None
 
 
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+
+
 class ProjectResponse(ProjectBase):
     id: UUID
     org_id: UUID
@@ -83,6 +87,13 @@ class AssetResponse(AssetCreate):
 
 class AssetUpdate(BaseModel):
     display_name: Optional[str] = None
+
+
+class ConversionRequest(BaseModel):
+    target_format: str
+    bitrate: Optional[int] = 192000
+    sample_rate: Optional[int] = 44100
+    channels: Optional[int] = 2
 
 
 class PresignRequest(BaseModel):
