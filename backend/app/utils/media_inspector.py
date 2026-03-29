@@ -73,6 +73,61 @@ class MediaValidationConfig:
         self.allow_multichannel = allow_multichannel
 
 
+def _inspect_with_tinytag(file_path: str, config: MediaValidationConfig) -> MediaInspectionResult:
+    """Fallback inspection using tinytag."""
+    import tinytag as tg
+    
+    try:
+        audio_info = tg.TinyTag.get(file_path)
+    except Exception as e:
+        raise MediaValidationError(f"Cannot read file with tinytag: {e}")
+    
+    errors = []
+    
+    duration = audio_info.duration
+    sample_rate = audio_info.samplerate
+    channels = audio_info.channels
+    bitrate = audio_info.bitrate
+    format_name = Path(file_path).suffix.lstrip('.').lower() if file_path else None
+    
+    if format_name and format_name not in config.supported_formats:
+        errors.append(f"Unsupported format: {format_name}")
+    
+    if sample_rate and sample_rate not in config.allowed_sample_rates:
+        errors.append(f"Unsupported sample rate: {sample_rate}Hz (allowed: {config.allowed_sample_rates})")
+    
+    if duration and duration > config.max_duration:
+        errors.append(f"File too long: {duration:.1f}s (max: {config.max_duration}s)")
+    
+    if channels and not config.allow_multichannel and channels > 2:
+        errors.append(f"Too many channels: {channels} (max: 2 for stereo)")
+    
+    metadata = {}
+    if audio_info.artist:
+        metadata['artist'] = audio_info.artist
+    if audio_info.title:
+        metadata['title'] = audio_info.title
+    if audio_info.album:
+        metadata['album'] = audio_info.album
+    
+    try:
+        codec = audio_info.codec
+    except Exception:
+        codec = None
+    
+    return MediaInspectionResult(
+        valid=len(errors) == 0,
+        duration=duration,
+        sample_rate=sample_rate,
+        channels=channels,
+        codec=codec,
+        bitrate=int(bitrate * 1000) if bitrate else None,
+        format_name=format_name,
+        metadata=metadata,
+        errors=errors,
+    )
+
+
 def inspect_media(
     file_path: str,
     config: Optional[MediaValidationConfig] = None,
@@ -96,17 +151,24 @@ def inspect_media(
     try:
         return _inspect_with_pyav(file_path, config)
     except Exception as e:
-        logger.warning(f"PyAV inspection failed: {e}, trying FFmpeg fallback")
+        logger.warning(f"PyAV inspection failed: {e}")
     
-    # Fallback to FFmpeg
+    # Fallback to FFprobe (CLI)
     try:
         return _inspect_with_ffmpeg(file_path, config)
     except Exception as e:
-        logger.error(f"FFmpeg inspection also failed: {e}")
-        return MediaInspectionResult(
-            valid=False,
-            errors=[f"Failed to inspect media: {str(e)}"]
-        )
+        logger.warning(f"FFprobe CLI failed: {e}")
+    
+    # Fallback to tinytag
+    try:
+        return _inspect_with_tinytag(file_path, config)
+    except Exception as e:
+        logger.error(f"tinytag inspection also failed: {e}")
+    
+    return MediaInspectionResult(
+        valid=False,
+        errors=[f"Failed to inspect media: no valid backend available"]
+    )
 
 
 def _inspect_with_pyav(file_path: str, config: MediaValidationConfig) -> MediaInspectionResult:
