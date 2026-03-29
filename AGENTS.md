@@ -50,9 +50,9 @@ Follow this process for every GitHub issue:
    - How to test
    - Any known issues or dependencies
 3. Udpate documentation - docs/FunctionalFeatures.md, docs/AudioForge-User-Guide.md, docs/project-structure.md
-4. Close the issue (`gh issue close <number>`)
-5. Commit the branch
-6. Merge to master
+4. Commit the branch with descriptive message
+5. Merge to master (`git checkout master && git merge fix/issue-XX-description`)
+6. Close the issue (`gh issue close <number>`)
 
 ---
 ### MY COMMITMENTS
