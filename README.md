@@ -372,6 +372,10 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
+### VM Runtime Deployment
+
+Deployment is now managed from the `deployment` directory. See [deployment/README.md](deployment/README.md) for VM runtime flow, required variables, and recovery steps.
+
 ## VS Code Debugging
 
 For VS Code debugging, use the `.vscode/launch.json` configurations:

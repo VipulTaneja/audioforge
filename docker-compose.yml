@@ -52,11 +52,6 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: admin
     ports:
       - "8080:8080"
-    healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\n\r\n' >&3;if [ $? -eq 0 ];then echo 'ERRORLEVEL:' $?;cat <&3;fi;"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
 
 volumes:
   postgres_data:

@@ -316,13 +316,16 @@ function ProjectCard({ project, onDelete, onRename }: { project: LocalProject; o
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleRename(e);
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleRename(e as unknown as React.MouseEvent);
+                  }
                   if (e.key === 'Escape') {
                     setEditName(project.name);
                     setIsEditing(false);
                   }
                 }}
-                onBlur={handleRename}
+                onBlur={(e) => handleRename(e as unknown as React.MouseEvent)}
                 onClick={(e) => e.preventDefault()}
                 className="w-full rounded-lg border border-sky-400 bg-white px-2 py-1 text-lg font-semibold text-slate-900 outline-none dark:border-sky-500 dark:bg-slate-900 dark:text-white"
                 autoFocus

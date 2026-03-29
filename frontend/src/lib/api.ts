@@ -47,6 +47,8 @@ export interface Asset {
   channels: number;
   sample_rate: number;
   result?: AssetResult;
+  display_name?: string;
+  filename?: string;
   created_by?: string;
   created_at: string;
 }
@@ -153,6 +155,13 @@ class ApiService {
   async deleteProject(id: string): Promise<void> {
     return this.request<void>(`/api/v1/projects/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  async updateProject(id: string, updates: { name?: string }): Promise<Project> {
+    return this.request<Project>(`/api/v1/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
     });
   }
 

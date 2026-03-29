@@ -78,6 +78,7 @@ Read all the below files and memorize them.
 | Project Structure | [docs/project-structure.md](docs/project-structure.md) |
 | Common Patterns | [docs/common-patterns.md](docs/common-patterns.md) |
 | Testing | [docs/testing.md](docs/testing.md) |
+| Deployment | [deployment/README.md](deployment/README.md) |
 
 ---
 
@@ -128,3 +129,15 @@ docker-compose up -d postgres redis minio keycloak
 docker-compose build && docker-compose up -d
 docker-compose down
 ```
+
+## Deployment Runbook (Registry-First Runtime)
+
+- Use `./deployment/deploy-runtime-to-vm.sh` for remote VM deploys.
+- Keep deployment strategy documented in `[deployment/README.md](deployment/README.md)` and update that file when changing environment variables, registry setup, or VM bootstrap steps.
+- Required local flow:
+  1. Export registry and VM env vars (at minimum `AUDIOFORGE_REGISTRY`, `AUDIOFORGE_IMAGE_TAG`, `AUDIOFORGE_REMOTE_HOST`, `AUDIOFORGE_REMOTE_USER`, `AUDIOFORGE_SSH_KEY`).
+  2. Ensure token/credentials are set for push and pull (`GH_TOKEN` recommended for GHCR).
+  3. Run `./deployment/deploy-runtime-to-vm.sh`.
+  4. Confirm VM service health (`/home/ubuntu/audioforge` + compose outputs + endpoint smoke checks).
+- Avoid manual code sync (`git pull` + source copy) to production VM; it should only host runtime compose and pull registry images.
+- Keep VM tooling compatible: default script expects working `docker-compose` command (v2); install/refresh if needed.

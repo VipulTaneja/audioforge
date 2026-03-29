@@ -1,5 +1,7 @@
 #!/bin/bash
 
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "=== AudioForge Startup Script ==="
 
 check_port() {
@@ -50,7 +52,7 @@ if check_port 8000 "Backend"; then
     running=1
 else
     echo "Starting backend..."
-    cd /home/vipul/src/test-opencode/backend
+    cd "$PROJECT_ROOT/backend"
     source venv/bin/activate
     nohup uvicorn app.main:app --reload --port 8000 > /tmp/audioforge_api.log 2>&1 &
     echo "Backend started (PID: $!)"
@@ -63,7 +65,7 @@ if check_port 3000 "Frontend"; then
     running=1
 else
     echo "Starting frontend..."
-    cd /home/vipul/src/test-opencode/frontend
+    cd "$PROJECT_ROOT/frontend"
     nohup npm run dev > /tmp/audioforge_frontend.log 2>&1 &
     echo "Frontend started (PID: $!)"
     not_running=1
@@ -75,7 +77,7 @@ if check_process "Celery Worker" "celery.*worker"; then
     running=1
 else
     echo "Starting Celery worker..."
-    cd /home/vipul/src/test-opencode/backend
+    cd "$PROJECT_ROOT/backend"
     source venv/bin/activate
     nohup celery -A app.workers.celery_app worker --loglevel=info > /tmp/audioforge_Celery.log 2>&1 &
     echo "Celery worker started (PID: $!)"
