@@ -150,6 +150,13 @@ class ApiService {
     });
   }
 
+  async updateProject(id: string, data: { name: string }): Promise<Project> {
+    return this.request<Project>(`/api/v1/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Assets
   async getPresignedUploadUrl(
     projectId: string,
@@ -256,6 +263,21 @@ class ApiService {
         asset_ids: assetIds,
         params,
       }),
+    });
+  }
+
+  async convertAsset(
+    assetId: string,
+    params: {
+      target_format: string;
+      bitrate?: number;
+      sample_rate?: number;
+      channels?: number;
+    }
+  ): Promise<{ job_id: string; status: string; message: string }> {
+    return this.request<{ job_id: string; status: string; message: string }>(`/api/v1/assets/${assetId}/convert`, {
+      method: 'POST',
+      body: JSON.stringify(params),
     });
   }
 

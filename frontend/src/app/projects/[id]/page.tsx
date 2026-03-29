@@ -234,7 +234,7 @@ export default function ProjectDetailPage() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'denoise' | 'mix' | 'jobs'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'denoise' | 'convert' | 'mix' | 'jobs'>('upload');
   const [projectJobs, setProjectJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [jobStatusFilter, setJobStatusFilter] = useState<'all' | Job['status']>('all');
@@ -266,6 +266,10 @@ export default function ProjectDetailPage() {
   const [denoiseOutputMode, setDenoiseOutputMode] = useState<'new' | 'overwrite'>('new');
   const [denoiseStationary, setDenoiseStationary] = useState(true);
   const [denoiseNoiseThreshold, setDenoiseNoiseThreshold] = useState(1.5);
+  const [convertFormat, setConvertFormat] = useState<string>('mp3');
+  const [convertBitrate, setConvertBitrate] = useState(192000);
+  const [convertSampleRate, setConvertSampleRate] = useState(44100);
+  const [convertChannels, setConvertChannels] = useState(2);
   const [separator, setSeparator] = useState<'demucs' | 'spleeter'>('demucs');
   const [masterVolume, setMasterVolume] = useState(80);
   const [trackLevels, setTrackLevels] = useState<Record<string, { l: number; r: number }>>({});
@@ -1021,6 +1025,11 @@ export default function ProjectDetailPage() {
   const handleDenoiseAsset = (asset: Asset) => {
     setSelectedAsset(asset);
     setActiveTab('denoise');
+  };
+
+  const handleConvertAsset = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setActiveTab('convert');
   };
 
   const startRenamingAsset = (asset: Asset) => {
@@ -2029,6 +2038,13 @@ export default function ProjectDetailPage() {
                 Denoise
               </button>
               <button 
+                onClick={() => audioAssets.length > 0 && setActiveTab('convert')}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'convert' ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'} ${audioAssets.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}
+                disabled={audioAssets.length === 0}
+              >
+                Convert
+              </button>
+              <button 
                 onClick={() => setActiveTab('jobs')}
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'jobs' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'}`}
               >
@@ -2318,6 +2334,13 @@ export default function ProjectDetailPage() {
                               title="Separate"
                             >
                               <Wand2 size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleConvertAsset(asset); }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 text-orange-600 transition hover:bg-orange-100 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-300 dark:hover:bg-orange-950/50"
+                              title="Convert Format"
+                            >
+                              <RotateCcw size={16} />
                             </button>
                           </>
                         )}
@@ -2816,6 +2839,189 @@ export default function ProjectDetailPage() {
                 {!selectedAsset && (
                   <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">
                     Select an audio file above to start noise reduction
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Convert Tab */}
+        {activeTab === 'convert' && (
+          <div className="mx-auto max-w-4xl">
+            {isProcessing ? (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm p-8 text-center">
+                <div className="w-24 h-24 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                  <RotateCcw className="w-16 h-16 animate-spin text-orange-600" />
+                </div>
+                <h2 className="text-xl font-semibold mb-2 dark:text-white">Converting Audio...</h2>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">{processingStatus}</p>
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-6">
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    <span className="font-semibold">Please wait!</span> Converting your audio to {convertFormat.toUpperCase()}.
+                  </p>
+                </div>
+                <div className="max-w-md mx-auto">
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+                    <div 
+                      className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all"
+                      style={{ width: `${Math.min(processingProgress, 100)}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{Math.round(Math.min(processingProgress, 100))}%</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm p-6">
+                <div className="mb-5">
+                  <h2 className="text-lg font-semibold dark:text-white">Convert Audio Format</h2>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Convert your audio to a different format. The original file is preserved.
+                  </p>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Select Audio File</h3>
+                  <div className="space-y-2">
+                    {audioAssets.map((asset) => (
+                      <div 
+                        key={asset.id}
+                        onClick={() => setSelectedAsset(asset)}
+                        className={`p-4 border dark:border-gray-600 rounded-lg cursor-pointer dark:bg-gray-700 ${selectedAsset?.id === asset.id ? 'border-orange-500 dark:border-orange-500 bg-orange-50 dark:bg-orange-900/20' : ''}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">🎵</span>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">{getAssetDisplayName(asset)}</p>
+                              <p className="text-sm text-gray-500">
+                                {asset.duration ? formatTime(asset.duration) : 'Unknown duration'}
+                              </p>
+                            </div>
+                          </div>
+                          {selectedAsset?.id === asset.id && (
+                            <span className="rounded-full bg-orange-600 px-2.5 py-1 text-xs font-semibold text-white">Selected</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Output Format</h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['wav', 'mp3', 'flac', 'aac', 'ogg', 'm4a'].map((format) => (
+                      <button
+                        key={format}
+                        onClick={() => setConvertFormat(format)}
+                        className={`py-3 px-3 text-sm rounded-lg border transition ${
+                          convertFormat === format
+                            ? 'border-orange-500 bg-orange-50 text-orange-700 dark:border-orange-400 dark:bg-orange-900/30 dark:text-orange-300'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                        }`}
+                      >
+                        {format.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {(convertFormat === 'mp3' || convertFormat === 'aac' || convertFormat === 'ogg') && (
+                  <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Bitrate</h3>
+                    <div className="space-y-2">
+                      {[
+                        { value: 128000, label: '128 kbps (Small)' },
+                        { value: 192000, label: '192 kbps (Standard)' },
+                        { value: 256000, label: '256 kbps (High)' },
+                        { value: 320000, label: '320 kbps (Best)' },
+                      ].map((option) => (
+                        <label key={option.value} className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="bitrate"
+                            value={option.value}
+                            checked={convertBitrate === option.value}
+                            onChange={() => setConvertBitrate(option.value)}
+                            className="w-4 h-4 text-orange-600"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Sample Rate</h3>
+                  <div className="flex gap-2">
+                    {[44100, 48000].map((rate) => (
+                      <button
+                        key={rate}
+                        onClick={() => setConvertSampleRate(rate)}
+                        className={`flex-1 py-2 px-3 text-sm rounded-lg border transition ${
+                          convertSampleRate === rate
+                            ? 'border-orange-500 bg-orange-50 text-orange-700 dark:border-orange-400 dark:bg-orange-900/30 dark:text-orange-300'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                        }`}
+                      >
+                        {rate / 1000} kHz
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Channels</h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setConvertChannels(1)}
+                      className={`flex-1 py-2 px-3 text-sm rounded-lg border transition ${
+                        convertChannels === 1
+                          ? 'border-orange-500 bg-orange-50 text-orange-700 dark:border-orange-400 dark:bg-orange-900/30 dark:text-orange-300'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                      }`}
+                    >
+                      Mono
+                    </button>
+                    <button
+                      onClick={() => setConvertChannels(2)}
+                      className={`flex-1 py-2 px-3 text-sm rounded-lg border transition ${
+                        convertChannels === 2
+                          ? 'border-orange-500 bg-orange-50 text-orange-700 dark:border-orange-400 dark:bg-orange-900/30 dark:text-orange-300'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                      }`}
+                    >
+                      Stereo
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={async () => {
+                    if (!selectedAsset) return;
+                    try {
+                      const result = await api.convertAsset(selectedAsset.id, {
+                        target_format: convertFormat,
+                        bitrate: convertBitrate,
+                        sample_rate: convertSampleRate,
+                        channels: convertChannels,
+                      });
+                      setIsProcessing(true);
+                      setActiveJobId(result.job_id);
+                    } catch (error) {
+                      console.error('Failed to start conversion:', error);
+                    }
+                  }}
+                  disabled={!selectedAsset}
+                  className="mt-6 w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg font-semibold text-lg hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  🔄 Convert to {convertFormat.toUpperCase()}
+                </button>
+                {!selectedAsset && (
+                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Select an audio file above to start conversion
                   </p>
                 )}
               </div>
