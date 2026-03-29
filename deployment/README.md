@@ -102,6 +102,36 @@ Frontend is mapped as:
 
 - `${AUDIOFORGE_FRONTEND_HOST_PORT:-80}:3000`
 
+## Logging
+
+All services are configured with structured logging using Docker's json-file driver:
+
+- **Log rotation**: 100MB per file, max 10 files per service
+- **Log location**: Stored in Docker's default log directory on the VM
+- **View logs**: Use the provided `view-logs.sh` script on the VM
+
+### Log Viewing Commands
+
+```bash
+# On the VM, use the helper script:
+./view-logs.sh backend -f              # Follow backend logs
+./view-logs.sh celery-worker -n 100  # Last 100 celery lines
+./view-logs.sh frontend --since 30m  # Frontend logs (last 30 min)
+./view-logs.sh all -f                  # Follow all services
+```
+
+### Manual Log Access
+
+```bash
+# View specific service logs
+sudo docker-compose -f docker-compose.runtime.yml logs -f backend
+sudo docker-compose -f docker-compose.runtime.yml logs -f celery-worker
+sudo docker-compose -f docker-compose.runtime.yml logs -f frontend
+
+# View nginx access logs
+sudo docker-compose -f docker-compose.runtime.yml logs -f nginx
+```
+
 ## Recovery steps
 
 - If the wrong command parser/path is used, check `AUDIOFORGE_REMOTE_DOCKER_CMD` and `AUDIOFORGE_REMOTE_COMPOSE_CMD`.
@@ -111,7 +141,7 @@ Frontend is mapped as:
 - If frontend appears down, check VM compose logs:
 
 ```bash
-ssh -i "$AUDIOFORGE_SSH_KEY" "$AUDIOFORGE_REMOTE_USER@$AUDIOFORGE_REMOTE_HOST" "cd $AUDIOFORGE_REMOTE_PATH && docker-compose -f docker-compose.runtime.yml logs -f frontend"
+./view-logs.sh frontend -f
 ```
 
 ## Notes for future work

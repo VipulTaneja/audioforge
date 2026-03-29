@@ -14,6 +14,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=postgres"
 
   redis:
     image: redis:7-alpine
@@ -26,6 +32,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=redis"
 
   minio:
     image: minio/minio:latest
@@ -43,6 +55,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=minio"
 
   keycloak:
     image: quay.io/keycloak/keycloak:23.0
@@ -52,6 +70,12 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: admin
     ports:
       - "8080:8080"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=keycloak"
 
   backend:
     image: ${AUDIOFORGE_IMAGE_NAME_PREFIX:-audioforge}/backend:${AUDIOFORGE_IMAGE_TAG:-0.1.0}
@@ -72,6 +96,7 @@ services:
       - KEYCLOAK_URL=http://keycloak:8080
       - KEYCLOAK_REALM=audioforge
       - KEYCLOAK_CLIENT_ID=audioforge
+      - LOG_LEVEL=info
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,6 +104,12 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=backend"
 
   celery-worker:
     image: ${AUDIOFORGE_IMAGE_NAME_PREFIX:-audioforge}/celery-worker:${AUDIOFORGE_IMAGE_TAG:-0.1.0}
@@ -105,6 +136,12 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=celery-worker"
 
   frontend:
     image: ${AUDIOFORGE_IMAGE_NAME_PREFIX:-audioforge}/frontend:${AUDIOFORGE_IMAGE_TAG:-0.1.0}
@@ -114,6 +151,12 @@ services:
       - NEXT_PUBLIC_API_URL=http://backend:8000/api/v1
     depends_on:
       - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=frontend"
 
   nginx:
     image: nginx:alpine
@@ -124,6 +167,12 @@ services:
     depends_on:
       - frontend
       - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=nginx"
 
 volumes:
   postgres_data:
