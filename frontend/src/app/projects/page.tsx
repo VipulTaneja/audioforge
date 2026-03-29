@@ -40,7 +40,8 @@ export default function ProjectsPage() {
                 year: 'numeric',
               }),
             };
-          } catch {
+          } catch (error) {
+            console.warn(`Failed to load assets for project ${project.id}:`, error);
             return {
               ...project,
               tracks: 0,
@@ -53,10 +54,14 @@ export default function ProjectsPage() {
       );
       setProjects(mapped);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
-    } catch {
+    } catch (error) {
+      console.error('Failed to load projects from backend:', error);
       const savedProjects = localStorage.getItem(STORAGE_KEY);
       if (savedProjects) {
+        console.log('Falling back to cached projects from localStorage');
         setProjects(JSON.parse(savedProjects));
+      } else {
+        console.log('No cached projects found in localStorage');
       }
     }
 
