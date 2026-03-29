@@ -37,7 +37,10 @@ Default behavior:
 - `deployment/deploy-runtime-to-vm.sh`
 - `deployment/docker-compose.runtime.yml`
 - `deployment/docker-compose.prod.yml`
+- `deployment/nginx.conf` (nginx reverse proxy config)
 - `deployment/README.md`
+
+**Architecture:** Nginx acts as reverse proxy on port 80, routing `/api/*` to backend and all other traffic to frontend.
 
 Note: `README.md` only links to deployment docs; all operational steps now live here.
 

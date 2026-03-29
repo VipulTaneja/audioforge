@@ -56,7 +56,7 @@ services:
   backend:
     image: ${AUDIOFORGE_IMAGE_NAME_PREFIX:-audioforge}/backend:${AUDIOFORGE_IMAGE_TAG:-0.1.0}
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
@@ -85,7 +85,7 @@ services:
   celery-worker:
     image: ${AUDIOFORGE_IMAGE_NAME_PREFIX:-audioforge}/celery-worker:${AUDIOFORGE_IMAGE_TAG:-0.1.0}
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     command: celery -A app.workers.celery_app worker --loglevel=info
     environment:
@@ -113,8 +113,10 @@ services:
   frontend:
     image: ${AUDIOFORGE_IMAGE_NAME_PREFIX:-audioforge}/frontend:${AUDIOFORGE_IMAGE_TAG:-0.1.0}
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://backend:8000/api/v1
     ports:
       - "3000:3000"
     environment:

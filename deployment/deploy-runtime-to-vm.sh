@@ -97,7 +97,7 @@ if [[ -n "${LOCAL_REGISTRY}" && -n "${LOCAL_REGISTRY_USERNAME}" && -n "${LOCAL_R
 fi
 
 echo "=== Building images locally using registry tags ==="
-docker compose -f docker-compose.prod.yml build backend celery-worker frontend
+docker compose -f deployment/docker-compose.prod.yml build backend celery-worker frontend
 
 docker_push_with_hint() {
   local image="$1"

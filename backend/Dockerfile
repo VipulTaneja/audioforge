@@ -7,13 +7,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.prod.txt .
+COPY requirements.prod.txt alembic.ini ./
 RUN pip install --no-cache-dir -r requirements.prod.txt
 
 COPY app/ ./app/
+COPY alembic/ ./alembic/
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./entrypoint.sh"]
