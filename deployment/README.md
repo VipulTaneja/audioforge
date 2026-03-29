@@ -144,8 +144,86 @@ sudo docker-compose -f docker-compose.runtime.yml logs -f nginx
 ./view-logs.sh frontend -f
 ```
 
+## Frontend API Configuration
+
+The frontend requires `NEXT_PUBLIC_API_URL` to be set during build time:
+
+```bash
+# For production with public IP (no domain yet):
+--build-arg NEXT_PUBLIC_API_URL=http://<your-vm-public-ip>
+
+# Example:
+--build-arg NEXT_PUBLIC_API_URL=http://129.146.226.172
+```
+
+**Important:** Do NOT include port 8000. The frontend calls `http://<ip>/api/v1/...` which nginx proxies to the backend.
+
+## Architecture Overview
+
+```
+┌─────────────┐         ┌─────────┐         ┌─────────────┐
+│   Browser   │────────▶│  Nginx  │────────▶│   Frontend  │
+│  (User)     │  :80    │  :80    │  :3000  │   (Next.js) │
+└─────────────┘         └────┬────┘         └─────────────┘
+                               │
+                               │ /api/*
+                               ▼
+                        ┌─────────────┐
+                        │   Backend   │
+                        │   (FastAPI) │
+                        │   :8000     │
+                        └─────────────┘
+```
+
+- **Nginx** listens on port 80 (public)
+- **Frontend** is internal only (port 3000)
+- **Backend** is internal only (port 8000)
+- All API requests go through nginx
+
+## Troubleshooting
+
+### Projects not showing in UI
+
+**Symptom:** API returns projects but UI shows empty list
+
+**Cause:** Frontend using wrong `NEXT_PUBLIC_API_URL` (e.g., `backend:8000` which browser can't resolve)
+
+**Fix:**
+```bash
+# On VM - rebuild frontend with correct public IP
+cd /tmp/frontend-src
+sudo docker build --no-cache \
+  --build-arg NEXT_PUBLIC_API_URL=http://<your-public-ip> \
+  -t audioforge/frontend:latest \
+  -f Dockerfile .
+
+# Tag and restart
+sudo docker tag audioforge/frontend:latest audioforge/frontend:0.1.0
+cd /home/ubuntu/audioforge
+sudo docker-compose -f docker-compose.runtime.yml up -d --force-recreate frontend
+```
+
+### Clear browser cache
+
+In browser console (F12):
+```javascript
+localStorage.clear();
+location.reload();
+```
+
+### Check API connectivity
+
+```bash
+# From local machine
+curl http://<vm-ip>/api/v1/projects/
+
+# From VM
+./view-logs.sh nginx -n 20 | grep api
+```
+
 ## Notes for future work
 
 - Keep production images immutable per deployment by bumping `AUDIOFORGE_IMAGE_TAG`.
 - Avoid manually copying source or extra artifact files to VM runtime directory.
 - Smoke check behavior is inside script; if it fails, inspect logs and service health before retrying.
+- When you get a domain, update `NEXT_PUBLIC_API_URL` to use `https://yourdomain.com`.

@@ -141,3 +141,11 @@ docker-compose down
   4. Confirm VM service health (`/home/ubuntu/audioforge` + compose outputs + endpoint smoke checks).
 - Avoid manual code sync (`git pull` + source copy) to production VM; it should only host runtime compose and pull registry images.
 - Keep VM tooling compatible: default script expects working `docker-compose` command (v2); install/refresh if needed.
+
+### Production Architecture Notes
+
+- **Nginx reverse proxy** handles all traffic on port 80
+- **Frontend** (`audioforge/frontend`) uses `NEXT_PUBLIC_API_URL=http://<vm-public-ip>`
+- **Backend** API exposed via nginx at `/api/*`
+- **Logs** available via `./view-logs.sh` script on VM for all services
+- **Log rotation**: 100MB per file, max 10 files per service
