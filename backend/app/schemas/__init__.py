@@ -1,8 +1,8 @@
 from app.schemas.schemas import (
     UserBase, UserCreate, UserResponse,
     OrgBase, OrgCreate, OrgResponse,
-    ProjectBase, ProjectCreate, ProjectResponse,
-    AssetCreate, AssetResponse, AssetUpdate, PresignRequest, PresignResponse,
+    ProjectBase, ProjectCreate, ProjectUpdate, ProjectResponse,
+    AssetCreate, AssetResponse, AssetUpdate, ConversionRequest, PresignRequest, PresignResponse,
     JobCreate, JobResponse, JobUpdate,
     MixGraph, MixGraphNode, MixGraphEdge,
     MixSessionUpdate, MixSessionResponse,
@@ -12,7 +12,7 @@ from app.schemas.schemas import (
 __all__ = [
     "UserBase", "UserCreate", "UserResponse",
     "OrgBase", "OrgCreate", "OrgResponse",
-    "ProjectBase", "ProjectCreate", "ProjectResponse",
+    "ProjectBase", "ProjectCreate", "ProjectUpdate", "ProjectResponse",
     "AssetCreate", "AssetResponse", "AssetUpdate", "PresignRequest", "PresignResponse",
     "JobCreate", "JobResponse", "JobUpdate",
     "MixGraph", "MixGraphNode", "MixGraphEdge",

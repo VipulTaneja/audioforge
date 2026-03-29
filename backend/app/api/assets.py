@@ -15,7 +15,7 @@ from app.core.storage import generate_presigned_upload_url, get_s3_client
 from app.core.config import get_settings
 from app.core.cache import get_cache_service, WAVEFORM_CACHE_TTL
 from app.models import Asset, Project, User
-from app.schemas import AssetCreate, AssetResponse, AssetUpdate, PresignRequest, PresignResponse
+from app.schemas import AssetCreate, AssetResponse, AssetUpdate, ConversionRequest, PresignRequest, PresignResponse
 
 router = APIRouter(prefix="/assets", tags=["assets"])
 
@@ -330,3 +330,60 @@ async def mixdown_assets(
             raise HTTPException(status_code=500, detail=str(e))
     
     return await generate_mixdown()
+
+
+@router.post("/{asset_id}/convert", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def convert_asset(
+    asset_id: UUID,
+    conversion: ConversionRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Convert an asset to a different audio format."""
+    from app.models import Job, JobStatus
+    from app.schemas import JobCreate
+    
+    result = await db.execute(select(Asset).where(Asset.id == asset_id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    target_format = conversion.target_format.lower()
+    if target_format not in {"wav", "mp3", "flac", "aac", "ogg", "m4a"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported format: {target_format}. Supported: wav, mp3, flac, aac, ogg, m4a"
+        )
+    
+    job = Job(
+        project_id=asset.project_id,
+        type="convert",
+        status=JobStatus.PENDING.value,
+        progress=0,
+        params={
+            "target_format": target_format,
+            "bitrate": conversion.bitrate,
+            "sample_rate": conversion.sample_rate,
+            "channels": conversion.channels,
+        }
+    )
+    db.add(job)
+    await db.flush()
+    await db.refresh(job)
+    await db.commit()
+    
+    from app.workers.conversion import convert_audio_format
+    convert_audio_format.delay(
+        str(job.id),
+        str(asset_id),
+        str(asset.project_id),
+        target_format,
+        conversion.bitrate,
+        conversion.sample_rate,
+        conversion.channels,
+    )
+    
+    return {
+        "job_id": str(job.id),
+        "status": "pending",
+        "message": f"Conversion to {target_format} started"
+    }
