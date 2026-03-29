@@ -2390,20 +2390,6 @@ export default function ProjectDetailPage() {
                             >
                               <Wand2 size={16} />
                             </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleTrimAsset(asset); }}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 text-orange-600 transition hover:bg-orange-100 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-300 dark:hover:bg-orange-950/50"
-                              title="Trim"
-                            >
-                              <Scissors size={16} />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleSeparateAsset(asset); }}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-white transition hover:bg-purple-700"
-                              title="Separate"
-                            >
-                              <Wand2 size={16} />
-                            </button>
                           </>
                         )}
                         <button
