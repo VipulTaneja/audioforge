@@ -35,6 +35,7 @@ import {
   Wand2,
   Waves,
   X,
+  FileAudio,
 } from 'lucide-react';
 
 interface TimelineStem {
@@ -236,7 +237,7 @@ export default function ProjectDetailPage() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'denoise' | 'trim' | 'mix' | 'jobs'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'denoise' | 'trim' | 'convert' | 'mix' | 'jobs'>('upload');
   const [projectJobs, setProjectJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [jobStatusFilter, setJobStatusFilter] = useState<'all' | Job['status']>('all');
@@ -271,6 +272,10 @@ export default function ProjectDetailPage() {
   const [trimStartTime, setTrimStartTime] = useState(0);
   const [trimEndTime, setTrimEndTime] = useState(30);
   const [trimOutputName, setTrimOutputName] = useState('');
+  const [convertFormat, setConvertFormat] = useState('mp3');
+  const [convertBitrate, setConvertBitrate] = useState(320);
+  const [convertSampleRate, setConvertSampleRate] = useState<number | undefined>(undefined);
+  const [convertChannels, setConvertChannels] = useState<number | undefined>(undefined);
   const [separator, setSeparator] = useState<'demucs' | 'spleeter'>('demucs');
   const [masterVolume, setMasterVolume] = useState(80);
   const [trackLevels, setTrackLevels] = useState<Record<string, { l: number; r: number }>>({});
@@ -1047,6 +1052,11 @@ export default function ProjectDetailPage() {
       console.error('Error validating asset:', error);
       alert('Failed to validate asset');
     }
+  };
+
+  const handleConvertAsset = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setActiveTab('convert');
   };
 
   const startRenamingAsset = (asset: Asset) => {
@@ -2062,6 +2072,13 @@ export default function ProjectDetailPage() {
                 Trim
               </button>
               <button 
+                onClick={() => audioAssets.length > 0 && setActiveTab('convert')}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'convert' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'} ${audioAssets.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}
+                disabled={audioAssets.length === 0}
+              >
+                Convert
+              </button>
+              <button 
                 onClick={() => setActiveTab('jobs')}
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'jobs' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'}`}
               >
@@ -2358,6 +2375,20 @@ export default function ProjectDetailPage() {
                               title="Trim"
                             >
                               <Scissors size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleConvertAsset(asset); }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 transition hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950-50"
+                              title="Convert"
+                            >
+                              <FileAudio size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleSeparateAsset(asset); }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-white transition hover:bg-purple-700"
+                              title="Separate"
+                            >
+                              <Wand2 size={16} />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleTrimAsset(asset); }}
@@ -3064,6 +3095,186 @@ export default function ProjectDetailPage() {
                 {!selectedAsset && (
                   <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">
                     Select an audio file above to start trimming
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Convert Tab */}
+        {activeTab === 'convert' && (
+          <div className="mx-auto max-w-4xl">
+            {isProcessing ? (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm p-8 text-center">
+                <div className="w-24 h-24 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                  <svg className="w-16 h-16 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold mb-2 dark:text-white">Converting Audio...</h2>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">{processingStatus}</p>
+                <div className="max-w-md mx-auto">
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+                    <div 
+                      className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all"
+                      style={{ width: `${Math.min(processingProgress, 100)}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{Math.round(Math.min(processingProgress, 100))}%</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm p-6">
+                <div className="mb-5">
+                  <h2 className="text-lg font-semibold dark:text-white">Convert Audio Format</h2>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Convert your audio file to a different format.
+                  </p>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Select Audio File</h3>
+                  <div className="space-y-2">
+                    {audioAssets.map((asset) => (
+                      <div 
+                        key={asset.id}
+                        onClick={() => setSelectedAsset(asset)}
+                        className={`p-4 border dark:border-gray-600 rounded-lg cursor-pointer dark:bg-gray-700 ${selectedAsset?.id === asset.id ? 'border-blue-500 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">🎵</span>
+                            <div>
+                              <p className="font-medium dark:text-white">{getAssetDisplayName(asset)}</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {asset.duration ? formatTime(asset.duration) : 'Unknown length'}
+                              </p>
+                            </div>
+                          </div>
+                          {selectedAsset?.id === asset.id && (
+                            <CheckSquare size={20} className="text-blue-600" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Conversion Options</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Output Format</label>
+                      <select
+                        value={convertFormat}
+                        onChange={(e) => setConvertFormat(e.target.value)}
+                        className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
+                      >
+                        <option value="mp3">MP3</option>
+                        <option value="wav">WAV</option>
+                        <option value="flac">FLAC</option>
+                        <option value="aac">AAC</option>
+                        <option value="ogg">OGG</option>
+                        <option value="m4a">M4A</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Bitrate (kbps)</label>
+                      <select
+                        value={convertBitrate}
+                        onChange={(e) => setConvertBitrate(parseInt(e.target.value))}
+                        className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
+                      >
+                        <option value={128}>128 kbps</option>
+                        <option value={192}>192 kbps</option>
+                        <option value={256}>256 kbps</option>
+                        <option value={320}>320 kbps</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Sample Rate (optional)</label>
+                      <select
+                        value={convertSampleRate || ''}
+                        onChange={(e) => setConvertSampleRate(e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
+                      >
+                        <option value="">Keep original</option>
+                        <option value={22050}>22050 Hz</option>
+                        <option value={44100}>44100 Hz</option>
+                        <option value={48000}>48000 Hz</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Channels (optional)</label>
+                      <select
+                        value={convertChannels || ''}
+                        onChange={(e) => setConvertChannels(e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
+                      >
+                        <option value="">Keep original</option>
+                        <option value={1}>Mono</option>
+                        <option value={2}>Stereo</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={async () => {
+                    if (!selectedAsset) return;
+                    try {
+                      setIsProcessing(true);
+                      setProcessingStatus('Starting conversion job...');
+                      setProcessingProgress(0);
+                      
+                      const result = await api.convertAsset(selectedAsset.id, {
+                        target_format: convertFormat,
+                        bitrate: convertBitrate * 1000,
+                        sample_rate: convertSampleRate,
+                        channels: convertChannels,
+                      });
+                      
+                      const pollInterval = setInterval(async () => {
+                        try {
+                          const status = await api.getJobStatus(result.job_id);
+                          setProcessingProgress(status.progress);
+                          setProcessingStatus(status.result?.message || 'Processing...');
+                          
+                          if (status.status === 'succeeded' || status.status === 'failed') {
+                            clearInterval(pollInterval);
+                            setIsProcessing(false);
+                            if (status.status === 'succeeded') {
+                              const updatedAssets = await api.getProjectAssets(projectId);
+                              setAssets(updatedAssets);
+                              setSelectedAsset(null);
+                              setActiveTab('jobs');
+                            }
+                          }
+                        } catch (e) {
+                          console.error('Error polling job status:', e);
+                        }
+                      }, 2000);
+                    } catch (error) {
+                      console.error('Error converting audio:', error);
+                      setIsProcessing(false);
+                      const message = error instanceof Error ? error.message : 'Failed to start conversion';
+                      alert(`Error: ${message}`);
+                    }
+                  }}
+                  disabled={!selectedAsset}
+                  className="mt-6 w-full py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  🔄 Convert Audio
+                </button>
+                {!selectedAsset && (
+                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Select an audio file above to start conversion
                   </p>
                 )}
               </div>

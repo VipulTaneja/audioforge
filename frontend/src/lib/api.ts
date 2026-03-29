@@ -242,6 +242,21 @@ class ApiService {
     });
   }
 
+  async convertAsset(
+    assetId: string,
+    params: {
+      target_format: string;
+      bitrate?: number;
+      sample_rate?: number;
+      channels?: number;
+    }
+  ): Promise<{ job_id: string; status: string; message: string }> {
+    return this.request<{ job_id: string; status: string; message: string }>(`/api/v1/assets/${assetId}/convert`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
   async validateAsset(assetId: string): Promise<{
     valid: boolean;
     duration?: number;
