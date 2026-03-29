@@ -15,7 +15,7 @@ from app.core.storage import generate_presigned_upload_url, get_s3_client
 from app.core.config import get_settings
 from app.core.cache import get_cache_service, WAVEFORM_CACHE_TTL
 from app.models import Asset, Project, User
-from app.schemas import AssetCreate, AssetResponse, AssetUpdate, ConversionRequest, PresignRequest, PresignResponse
+from app.schemas import AssetCreate, AssetResponse, AssetUpdate, ConversionRequest, PresignRequest, PresignResponse, TrimRequest, JobResponse
 
 router = APIRouter(prefix="/assets", tags=["assets"])
 
@@ -387,3 +387,72 @@ async def convert_asset(
         "status": "pending",
         "message": f"Conversion to {target_format} started"
     }
+
+
+@router.post("/{asset_id}/trim", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
+async def trim_asset(
+    asset_id: UUID,
+    trim: TrimRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Trim an asset to a specific time range."""
+    from app.models import Job, JobStatus
+    from app.schemas import JobCreate
+    
+    result = await db.execute(select(Asset).where(Asset.id == asset_id))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    if trim.start_time < 0:
+        raise HTTPException(status_code=400, detail="Start time cannot be negative")
+    
+    if trim.end_time <= trim.start_time:
+        raise HTTPException(status_code=400, detail="End time must be greater than start time")
+    
+    if asset.duration and trim.end_time > asset.duration:
+        raise HTTPException(
+            status_code=400,
+            detail=f"End time ({trim.end_time}s) exceeds asset duration ({asset.duration}s)"
+        )
+    
+    job = Job(
+        project_id=asset.project_id,
+        type="trim",
+        status=JobStatus.PENDING.value,
+        progress=0,
+        params={
+            "start_time": trim.start_time,
+            "end_time": trim.end_time,
+            "output_name": trim.output_name,
+        }
+    )
+    db.add(job)
+    await db.flush()
+    await db.refresh(job)
+    await db.commit()
+    
+    from app.workers.trim import trim_audio
+    trim_audio.delay(
+        str(job.id),
+        str(asset_id),
+        str(asset.project_id),
+        trim.start_time,
+        trim.end_time,
+        trim.output_name,
+    )
+    
+    from app.schemas import JobResponse
+    return JobResponse(
+        id=job.id,
+        project_id=job.project_id,
+        type=job.type,
+        status=job.status,
+        progress=job.progress,
+        params=job.params,
+        result=job.result,
+        error=job.error,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        ended_at=job.ended_at,
+    )

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { FolderPlus, Layers3, Search, ShieldAlert, Trash2 } from 'lucide-react';
+import { FolderPlus, Layers3, Pencil, Search, ShieldAlert, Trash2 } from 'lucide-react';
 import { api, Project } from '@/lib/api';
 import { formatBrowserDateTime } from '@/lib/datetime';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -198,7 +198,12 @@ export default function ProjectsPage() {
           ) : (
             <div className="grid max-h-[calc(100vh-255px)] gap-4 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
               {filteredProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} onDelete={() => setProjects((prev) => prev.filter((p) => p.id !== project.id))} />
+                <ProjectCard 
+                  key={project.id} 
+                  project={project} 
+                  onDelete={() => setProjects((prev) => prev.filter((p) => p.id !== project.id))}
+                  onRename={(newName) => setProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, name: newName } : p))}
+                />
               ))}
             </div>
           )}
@@ -255,9 +260,34 @@ function MetricCard({ label, value, icon }: { label: string; value: string; icon
   );
 }
 
-function ProjectCard({ project, onDelete }: { project: LocalProject; onDelete: () => void }) {
+function ProjectCard({ project, onDelete, onRename }: { project: LocalProject; onDelete: () => void; onRename: (newName: string) => void }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(project.name);
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  const handleRename = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!editName.trim() || editName === project.name) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsRenaming(true);
+    try {
+      await api.updateProject(project.id, { name: editName.trim() });
+      onRename(editName.trim());
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to rename project:', error);
+      alert(error instanceof Error ? error.message : 'Failed to rename project');
+    } finally {
+      setIsRenaming(false);
+    }
+  };
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -279,10 +309,42 @@ function ProjectCard({ project, onDelete }: { project: LocalProject; onDelete: (
     <Link href={`/projects/${project.id}`} className="group">
       <article className="rounded-[28px] border border-white/70 bg-white/85 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.07)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_80px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-slate-950/75">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-lg font-semibold text-slate-900 dark:text-white">{project.name}</p>
+          <div className="min-w-0 flex-1">
+            {isEditing ? (
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRename(e);
+                  if (e.key === 'Escape') {
+                    setEditName(project.name);
+                    setIsEditing(false);
+                  }
+                }}
+                onBlur={handleRename}
+                onClick={(e) => e.preventDefault()}
+                className="w-full rounded-lg border border-sky-400 bg-white px-2 py-1 text-lg font-semibold text-slate-900 outline-none dark:border-sky-500 dark:bg-slate-900 dark:text-white"
+                autoFocus
+                disabled={isRenaming}
+              />
+            ) : (
+              <p className="truncate text-lg font-semibold text-slate-900 dark:text-white">{project.name}</p>
+            )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsEditing(true);
+                setEditName(project.name);
+              }}
+              className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-sky-600 dark:hover:bg-sky-950 dark:hover:text-sky-400"
+              title="Rename project"
+            >
+              <Pencil size={16} />
+            </button>
             <button
               onClick={(e) => {
                 e.preventDefault();

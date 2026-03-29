@@ -10,7 +10,9 @@ Follow this process for every GitHub issue:
 - Check current branch → Create/switch to `fix/issue-00-implementation`
 
 ### Context Discovery
-- Search codebase for related references (grep/LSP)
+- Search codebase for related references (grep/LSP). First do this for backend and then for frontend as well. If required, both backend and frontend changes should be done together. 
+- **IMPORTANT**: Always read existing model schemas first before using model fields (e.g., check `backend/app/models/models.py` to verify field names like `filename`, `s3_key`, etc.)
+- Check `backend/app/schemas/__init__.py` to verify schema exports
 
 ### Execution Plan
 - Write detailed step-by-step technical plan
@@ -18,12 +20,21 @@ Follow this process for every GitHub issue:
 
 ### Implementation
 - Apply changes systematically
+- **NEW Celery tasks**: If adding a new worker, import it in `backend/app/workers/__init__.py` to ensure auto-discovery
+- **New Python dependencies**: Add to `backend/requirements.txt` and install with `pip install -r requirements.txt`
+- **Restart services**: When adding new Celery tasks, restart the worker: `pkill -f celery && celery -A app.workers.celery_app worker --loglevel=info`
 
 ### Automated Validation
 - Run build command (`npm run build` or `make`)
 - Run tests (`npm test` or `pytest`)
 - Iterate until tests pass
 - if test do not pass in 3 iteration, mark as test failed. 
+
+### Runtime Verification (Critical for Workers)
+- Always test the actual end-to-end flow, not just unit tests
+- Check Celery worker logs for task execution errors: `tail -50 /tmp/audioforge_celery.log`
+- Verify new Celery tasks are registered: look for `. tasks.your_task_name` in startup logs
+- For audio processing: verify system dependencies (ffmpeg, etc.) are installed or add fallbacks
 
 ### If tests failed:
 1. Leave comments with deatils of changes you did and issue you faced and anything else that will be relevant to work on this in future.
@@ -33,10 +44,15 @@ Follow this process for every GitHub issue:
 
 ### If tests pass:
 1. Final linting check
-2. Comment on GitHub issue with summary
-3. Close the issue (`gh issue close <number>`)
-4. Commit the branch
-5. Merge to master
+2. Comment on GitHub issue with summary including:
+   - Files created/modified
+   - Key implementation details
+   - How to test
+   - Any known issues or dependencies
+3. Udpate documentation - docs/FunctionalFeatures.md, docs/AudioForge-User-Guide.md, docs/project-structure.md
+4. Close the issue (`gh issue close <number>`)
+5. Commit the branch
+6. Merge to master
 
 ---
 ### MY COMMITMENTS

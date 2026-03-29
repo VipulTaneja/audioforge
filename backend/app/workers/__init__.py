@@ -1,4 +1,5 @@
 from app.workers.celery_app import celery_app
+from app.workers import trim
 from app.workers.helpers import (
     DEFAULT_DEMUCS_MODEL,
     SUPPORTED_DEMUCS_MODELS,

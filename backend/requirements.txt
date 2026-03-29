@@ -24,6 +24,7 @@ spleeter
 tensorflow
 librosa>=0.10.0
 noisereduce>=3.0.0
+pydub>=0.25.0
 
 # Testing
 pytest>=7.4.0

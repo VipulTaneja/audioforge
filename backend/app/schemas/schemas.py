@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
@@ -219,3 +219,17 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     user_id: Optional[str] = None
+
+
+class TrimRequest(BaseModel):
+    start_time: float
+    end_time: float
+    output_name: Optional[str] = None
+
+    @model_validator(mode='after')
+    def validate_times(self):
+        if self.start_time < 0:
+            raise ValueError("Start time cannot be negative")
+        if self.end_time <= self.start_time:
+            raise ValueError("End time must be greater than start time")
+        return self

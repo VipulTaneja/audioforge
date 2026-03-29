@@ -22,6 +22,7 @@ import {
   Play,
   RotateCcw,
   Save,
+  Scissors,
   Sparkles,
   SplitSquareVertical,
   Square,
@@ -234,7 +235,7 @@ export default function ProjectDetailPage() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'denoise' | 'mix' | 'jobs'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'denoise' | 'trim' | 'mix' | 'jobs'>('upload');
   const [projectJobs, setProjectJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [jobStatusFilter, setJobStatusFilter] = useState<'all' | Job['status']>('all');
@@ -266,6 +267,9 @@ export default function ProjectDetailPage() {
   const [denoiseOutputMode, setDenoiseOutputMode] = useState<'new' | 'overwrite'>('new');
   const [denoiseStationary, setDenoiseStationary] = useState(true);
   const [denoiseNoiseThreshold, setDenoiseNoiseThreshold] = useState(1.5);
+  const [trimStartTime, setTrimStartTime] = useState(0);
+  const [trimEndTime, setTrimEndTime] = useState(30);
+  const [trimOutputName, setTrimOutputName] = useState('');
   const [separator, setSeparator] = useState<'demucs' | 'spleeter'>('demucs');
   const [masterVolume, setMasterVolume] = useState(80);
   const [trackLevels, setTrackLevels] = useState<Record<string, { l: number; r: number }>>({});
@@ -1021,6 +1025,11 @@ export default function ProjectDetailPage() {
   const handleDenoiseAsset = (asset: Asset) => {
     setSelectedAsset(asset);
     setActiveTab('denoise');
+  };
+
+  const handleTrimAsset = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setActiveTab('trim');
   };
 
   const startRenamingAsset = (asset: Asset) => {
@@ -2029,6 +2038,13 @@ export default function ProjectDetailPage() {
                 Denoise
               </button>
               <button 
+                onClick={() => audioAssets.length > 0 && setActiveTab('trim')}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'trim' ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'} ${audioAssets.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}
+                disabled={audioAssets.length === 0}
+              >
+                Trim
+              </button>
+              <button 
                 onClick={() => setActiveTab('jobs')}
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'jobs' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-white text-gray-600 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-white'}`}
               >
@@ -2311,6 +2327,13 @@ export default function ProjectDetailPage() {
                               title="Reduce Noise"
                             >
                               <Waves size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleTrimAsset(asset); }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 text-orange-600 transition hover:bg-orange-100 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-300 dark:hover:bg-orange-950/50"
+                              title="Trim"
+                            >
+                              <Scissors size={16} />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleSeparateAsset(asset); }}
@@ -2816,6 +2839,200 @@ export default function ProjectDetailPage() {
                 {!selectedAsset && (
                   <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">
                     Select an audio file above to start noise reduction
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Trim Tab */}
+        {activeTab === 'trim' && (
+          <div className="mx-auto max-w-4xl">
+            {isProcessing ? (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm p-8 text-center">
+                <div className="w-24 h-24 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                  <svg className="w-16 h-16 animate-spin text-orange-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold mb-2 dark:text-white">Trimming Audio...</h2>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">{processingStatus}</p>
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-6">
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    <span className="font-semibold">Please wait!</span> Trimming is processing your audio.
+                  </p>
+                </div>
+                <div className="max-w-md mx-auto">
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+                    <div 
+                      className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all"
+                      style={{ width: `${Math.min(processingProgress, 100)}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{Math.round(Math.min(processingProgress, 100))}%</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm p-6">
+                <div className="mb-5">
+                  <h2 className="text-lg font-semibold dark:text-white">Trim Audio</h2>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Select an audio file and specify the start and end times to trim/cut a specific portion.
+                  </p>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Select Audio File</h3>
+                  <div className="space-y-2">
+                    {audioAssets.map((asset) => (
+                      <div 
+                        key={asset.id}
+                        onClick={() => {
+                          setSelectedAsset(asset);
+                          if (asset.duration) {
+                            setTrimEndTime(Math.min(30, asset.duration));
+                          }
+                        }}
+                        className={`p-4 border dark:border-gray-600 rounded-lg cursor-pointer dark:bg-gray-700 ${selectedAsset?.id === asset.id ? 'border-orange-500 dark:border-orange-500 bg-orange-50 dark:bg-orange-900/20' : ''}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">🎵</span>
+                            <div>
+                              <p className="font-medium dark:text-white">{getAssetDisplayName(asset)}</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {asset.duration ? formatTime(asset.duration) : 'Unknown length'} · Added {formatAssetDate(asset.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          {selectedAsset?.id === asset.id && (
+                            <CheckSquare size={20} className="text-orange-600" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Trim Options */}
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Trim Range</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Start Time (seconds)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={trimStartTime}
+                        onChange={(e) => setTrimStartTime(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">End Time (seconds)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={trimEndTime}
+                        onChange={(e) => setTrimEndTime(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Output Name (optional)</label>
+                    <input
+                      type="text"
+                      value={trimOutputName}
+                      onChange={(e) => setTrimOutputName(e.target.value)}
+                      placeholder="Leave empty for auto-generated name"
+                      className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
+                    />
+                  </div>
+
+                  {selectedAsset?.duration && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setTrimStartTime(0); setTrimEndTime(Math.min(30, selectedAsset.duration || 30)); }}
+                        className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-600 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                      >
+                        First 30s
+                      </button>
+                      <button
+                        onClick={() => { 
+                          const dur = selectedAsset.duration || 0;
+                          setTrimStartTime(0); 
+                          setTrimEndTime(dur); 
+                        }}
+                        className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-600 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                      >
+                        Full Length
+                      </button>
+                    </div>
+                  )}
+
+                  {selectedAsset && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                      Selected range: {formatTime(trimStartTime)} - {formatTime(trimEndTime)} (Duration: {formatTime(Math.max(0, trimEndTime - trimStartTime))})
+                    </p>
+                  )}
+                </div>
+
+                <button 
+                  onClick={async () => {
+                    if (!selectedAsset) return;
+                    try {
+                      setIsProcessing(true);
+                      setProcessingStatus('Starting trim job...');
+                      setProcessingProgress(0);
+                      
+                      const job = await api.trimAsset(selectedAsset.id, {
+                        start_time: trimStartTime,
+                        end_time: trimEndTime,
+                        output_name: trimOutputName || undefined,
+                      });
+                      
+                      const pollInterval = setInterval(async () => {
+                        try {
+                          const status = await api.getJobStatus(job.id);
+                          setProcessingProgress(status.progress);
+                          setProcessingStatus(status.result?.message || 'Processing...');
+                          
+                          if (status.status === 'succeeded' || status.status === 'failed') {
+                            clearInterval(pollInterval);
+                            setIsProcessing(false);
+                            if (status.status === 'succeeded') {
+                              const updatedAssets = await api.getProjectAssets(projectId);
+                              setAssets(updatedAssets);
+                              setSelectedAsset(null);
+                              setActiveTab('jobs');
+                            }
+                          }
+                        } catch (e) {
+                          console.error('Error polling job status:', e);
+                        }
+                      }, 2000);
+                    } catch (error) {
+                      console.error('Error trimming audio:', error);
+                      setIsProcessing(false);
+                      const message = error instanceof Error ? error.message : 'Failed to start trim job';
+                      alert(`Error: ${message}`);
+                    }
+                  }}
+                  disabled={!selectedAsset || trimEndTime <= trimStartTime}
+                  className="mt-6 w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg font-semibold text-lg hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ✂️ Trim Audio
+                </button>
+                {!selectedAsset && (
+                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Select an audio file above to start trimming
                   </p>
                 )}
               </div>

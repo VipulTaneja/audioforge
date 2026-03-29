@@ -2,9 +2,11 @@ import pytest
 from pydantic import ValidationError
 from app.schemas.schemas import (
     ProjectCreate,
+    ProjectUpdate,
     AssetCreate,
     JobCreate,
     PresignRequest,
+    TrimRequest,
 )
 
 
@@ -23,6 +25,16 @@ class TestProjectSchemas:
         project = ProjectCreate(name="Test Project", org_id=org_uuid)
         assert project.name == "Test Project"
         assert project.org_id == org_uuid
+
+    def test_project_update_valid(self):
+        """Test updating project with name."""
+        update = ProjectUpdate(name="Updated Name")
+        assert update.name == "Updated Name"
+
+    def test_project_update_partial(self):
+        """Test partial project update."""
+        update = ProjectUpdate()
+        assert update.name is None
 
 
 class TestAssetSchemas:
@@ -186,3 +198,48 @@ class TestJobSchemas:
         )
         assert job.status == "pending"
         assert job.progress == 0
+
+
+class TestTrimSchemas:
+    """Test trim request schema validation."""
+
+    def test_trim_request_valid(self):
+        """Test trim request with valid data."""
+        request = TrimRequest(
+            start_time=10.0,
+            end_time=30.0
+        )
+        assert request.start_time == 10.0
+        assert request.end_time == 30.0
+
+    def test_trim_request_with_output_name(self):
+        """Test trim request with custom output name."""
+        request = TrimRequest(
+            start_time=5.0,
+            end_time=15.0,
+            output_name="my_trimmed_audio"
+        )
+        assert request.output_name == "my_trimmed_audio"
+
+    def test_trim_request_zero_start(self):
+        """Test trim request starting at zero."""
+        request = TrimRequest(
+            start_time=0.0,
+            end_time=10.0
+        )
+        assert request.start_time == 0.0
+
+    def test_trim_request_invalid_negative_start(self):
+        """Test trim request with negative start time fails."""
+        with pytest.raises(ValidationError):
+            TrimRequest(start_time=-1.0, end_time=10.0)
+
+    def test_trim_request_invalid_end_before_start(self):
+        """Test trim request with end before start fails."""
+        with pytest.raises(ValidationError):
+            TrimRequest(start_time=30.0, end_time=10.0)
+
+    def test_trim_request_invalid_equal_times(self):
+        """Test trim request with equal start and end fails."""
+        with pytest.raises(ValidationError):
+            TrimRequest(start_time=10.0, end_time=10.0)

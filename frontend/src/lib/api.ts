@@ -106,7 +106,13 @@ class ApiService {
       let errorMessage: string;
       try {
         const errorJson = JSON.parse(errorBody);
-        errorMessage = errorJson.detail || `HTTP ${response.status}: ${errorBody}`;
+        if (typeof errorJson.detail === 'string') {
+          errorMessage = errorJson.detail;
+        } else if (Array.isArray(errorJson.detail)) {
+          errorMessage = errorJson.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join(', ');
+        } else {
+          errorMessage = `HTTP ${response.status}: ${errorBody}`;
+        }
       } catch {
         errorMessage = errorBody || `HTTP ${response.status}`;
       }
@@ -220,6 +226,20 @@ class ApiService {
     if (volumes) params.set('volumes', volumes.join(','));
     if (pans) params.set('pans', pans.join(','));
     return `${API_BASE_URL}/api/v1/assets/${id}/mixdown?${params.toString()}`;
+  }
+
+  async trimAsset(
+    assetId: string,
+    params: {
+      start_time: number;
+      end_time: number;
+      output_name?: string;
+    }
+  ): Promise<Job> {
+    return this.request<Job>(`/api/v1/assets/${assetId}/trim`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
   }
 
   // Jobs

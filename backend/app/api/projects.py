@@ -6,7 +6,7 @@ from uuid import UUID
 from app.core.database import get_db
 from app.core.storage import delete_s3_object
 from app.models import Project, Org, Asset, Job
-from app.schemas import ProjectCreate, ProjectResponse
+from app.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -48,6 +48,21 @@ async def list_projects(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Project))
     projects = result.scalars().all()
     return projects
+
+
+@router.patch("/{project_id}", response_model=ProjectResponse)
+async def update_project(project_id: UUID, project_update: ProjectUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if project_update.name is not None:
+        project.name = project_update.name
+    
+    await db.flush()
+    await db.refresh(project)
+    return project
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -14,10 +14,13 @@ Think of a project like a folder for one piece of work - maybe a song you're wor
 - Click on any project to open it
 
 ### Inside a Project
-Each project has three sections (shown as tabs at the top):
+Each project has sections (shown as tabs at the top):
 - **Upload** - Add your audio files here
 - **Separate** - Split songs into parts using AI
+- **Denoise** - Remove background noise from recordings
+- **Trim** - Cut specific portions of audio files
 - **Mixer** - Adjust volumes, add effects, and mix everything together
+- **Jobs** - View background processing tasks
 
 ---
 
@@ -157,6 +160,59 @@ The **Jobs** page (Admin > Jobs) shows all background tasks:
 - Check status: pending, running, completed, or failed
 - Stop a job if it's taking too long
 - See error messages for failed jobs
+
+---
+
+## Converting Audio Formats
+
+Sometimes you need to change the format of your audio file - maybe you need MP3 for a website, or WAV for studio work.
+
+### How to Convert
+- Click the **Convert** tab in your project
+- Select the audio file you want to convert
+- Choose the output format (WAV, MP3, FLAC, AAC, OGG, M4A)
+- For MP3/AAC/OGG, you can also choose the quality (bitrate)
+- Pick your sample rate (44.1kHz or 48kHz) and channels (mono or stereo)
+- Click "Convert to [format]" and wait for processing
+
+### Format Options
+| Format | Best For | Lossy? |
+|--------|----------|---------|
+| WAV | Studio work, maximum quality | No |
+| MP3 | Web, small file size | Yes |
+| FLAC | Archival, high quality | No |
+| AAC | Modern devices | Yes |
+| OGG | Open source projects | Yes |
+| M4A | Apple devices | Yes |
+
+### What Happens
+- Your original file stays safe
+- A new converted file is created
+- The new file appears in your asset list
+
+---
+
+## Trimming Audio
+
+Need to cut out just a portion of an audio file? The Trim feature lets you select a specific time range.
+
+### How to Trim
+- Click the **Trim** tab in your project
+- Select the audio file you want to trim
+- Enter the start time (in seconds)
+- Enter the end time (in seconds)
+- Optionally, give your trimmed file a name
+- Click "Trim Audio" and wait for processing
+
+### Quick Select Buttons
+- **First 30s** - Quickly set the range to the first 30 seconds
+- **Full Length** - Set the range to the entire file
+
+### What Happens
+- Your original file stays safe
+- A new trimmed file is created with the selected portion
+- The new file appears in your asset list
+- The job is tracked in the Jobs tab
 
 ---
 
