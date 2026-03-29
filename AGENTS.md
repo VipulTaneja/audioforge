@@ -44,15 +44,17 @@ Follow this process for every GitHub issue:
 
 ### If tests pass:
 1. Final linting check
-2. Comment on GitHub issue with summary including:
+2. Update documentation - docs/FunctionalFeatures.md, docs/AudioForge-User-Guide.md, docs/project-structure.md
+3. Commit the branch with descriptive message
+4. Create PR: `git push -u origin fix/issue-XX-description && gh pr create --title "..." --body "..."`
+5. Comment on GitHub issue with summary including:
    - Files created/modified
    - Key implementation details
    - How to test
    - Any known issues or dependencies
-3. Udpate documentation - docs/FunctionalFeatures.md, docs/AudioForge-User-Guide.md, docs/project-structure.md
-4. Commit the branch with descriptive message
-5. Merge to master (`git checkout master && git merge fix/issue-XX-description`)
-6. Close the issue (`gh issue close <number>`)
+   - PR number (e.g., "PR #123")
+6. Merge PR or merge branch to master
+7. Close the issue (`gh issue close <number>`)
 
 ---
 ### MY COMMITMENTS
