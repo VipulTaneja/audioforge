@@ -1,4 +1,6 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+// API_BASE_URL should be relative (e.g., '') for browser requests
+// so nginx can proxy them to the backend
+const API_BASE_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
 
 export const DEMUCS_MODEL_OPTIONS: Array<{ value: DemucsModel; label: string; description: string }> = [
   { value: 'htdemucs', label: 'HT Demucs', description: 'Best overall quality. 4 stems: Vocals, Drums, Bass, Other.' },
