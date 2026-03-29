@@ -46,7 +46,8 @@ Follow this process for every GitHub issue:
 1. Final linting check
 2. Update documentation - docs/FunctionalFeatures.md, docs/AudioForge-User-Guide.md, docs/project-structure.md
 3. Commit the branch with descriptive message
-4. Create PR: `git push -u origin fix/issue-XX-description && gh pr create --title "..." --body "..."`
+4. Verify all changes: `git diff master..HEAD --stat` to see what's being merged
+5. Create PR: `git push -u origin fix/issue-XX-description && gh pr create --title "..." --body "..."`
 5. Comment on GitHub issue with summary including:
    - Files created/modified
    - Key implementation details
@@ -54,7 +55,8 @@ Follow this process for every GitHub issue:
    - Any known issues or dependencies
    - PR number (e.g., "PR #123")
 6. Merge PR or merge branch to master
-7. Close the issue (`gh issue close <number>`)
+7. **Verify merge**: Run `git log --oneline master | head -10` to confirm all commits are present
+8. Close the issue (`gh issue close <number>`)
 
 ---
 ### MY COMMITMENTS
